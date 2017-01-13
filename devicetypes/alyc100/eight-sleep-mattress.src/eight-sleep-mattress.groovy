@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	13.01.2017: 1.0 BETA Release 5 - Historical sleep chart improvements showing SleepScore.
  *	12.01.2017: 1.0 BETA Release 4c - Better 'Offline' detection and handling.
  *	12.01.2017: 1.0 BETA Release 4b - Minor event messaging improvements.
  *	12.01.2017: 1.0 BETA Release 4 - Further refinements to bed presence contact behaviour.
@@ -465,10 +466,12 @@ def addHistoricalSleepToChartData() {
     	def days = resp.data.days
         state.chartData = [0, 0, 0, 0, 0, 0, 0]
         state.chartData2 = [0, 0, 0, 0, 0, 0, 0]
+        state.chartData3 = [0, 0, 0, 0, 0, 0, 0]
         
         0.upto(days.size() - 1, {
         	state.chartData[6 - it] = days[it].sleepDuration / 3600  
             state.chartData2[6 - it] = days[it].presenceDuration / 3600
+            state.chartData3[6 - it] = days[it].score
         })
     }
 }
@@ -485,12 +488,17 @@ def getImageChartHTML() {
         	if (state.chartData2 == null) {
             	state.chartData2 = [0, 0, 0, 0, 0, 0, 0]
             }
+            if (state.chartData3 == null) {
+            	state.chartData3 = [0, 0, 0, 0, 0, 0, 0]
+            }
             def a = state.chartData.max()
             def b = state.chartData2.max()
             def topValue = a > b ? a : b
 			hData = """
-	  <h4 style="font-size: 22px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Sleep/Presence History</h4><br>
-	  <div id="main_graph" style="width: 100%; height: 260px;"><img src="http://chart.googleapis.com/chart?cht=bvg&chs=350x200&chxt=x,y,y&chco=5c628f,00e2b1&chd=t:${state.chartData.getAt(6)},${state.chartData.getAt(5)},${state.chartData.getAt(4)},${state.chartData.getAt(3)},${state.chartData.getAt(2)},${state.chartData.getAt(1)},${state.chartData.getAt(0)}|${state.chartData2.getAt(6)},${state.chartData2.getAt(5)},${state.chartData2.getAt(4)},${state.chartData2.getAt(3)},${state.chartData2.getAt(2)},${state.chartData2.getAt(1)},${state.chartData2.getAt(0)}&chds=0,${topValue+2}&chxl=0:|${(date - 6).format("d MMM")}|${(date - 5).format("d MMM")}|${(date - 4).format("d MMM")}|${(date - 3).format("d MMM")}|${(date - 2).format("d MMM")}|${(date - 1).format("d MMM")}|${date.format("d MMM")}|2:|Hours&chxp=2,50&chxr=1,0,${topValue+2}&chbh=a,0,5"></div>
+	  <h4 style="font-size: 16px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Historical Data</h4><br>
+      <div id="main_graph" style="width: 100%; height: 260px;">
+      	<img src="http://chart.googleapis.com/chart?cht=bvg&chs=368x200&chxt=x,y,y,r,r&chco=5c628f,00e2b1&chd=t2:${state.chartData.getAt(6)},${state.chartData.getAt(5)},${state.chartData.getAt(4)},${state.chartData.getAt(3)},${state.chartData.getAt(2)},${state.chartData.getAt(1)},${state.chartData.getAt(0)}|${state.chartData2.getAt(6)},${state.chartData2.getAt(5)},${state.chartData2.getAt(4)},${state.chartData2.getAt(3)},${state.chartData2.getAt(2)},${state.chartData2.getAt(1)},${state.chartData2.getAt(0)}|${state.chartData3.getAt(6)},${state.chartData3.getAt(5)},${state.chartData3.getAt(4)},${state.chartData3.getAt(3)},${state.chartData3.getAt(2)},${state.chartData3.getAt(1)},${state.chartData3.getAt(0)}&chds=0,${topValue+2},0,${topValue+2},0,100&chxl=0:|${(date - 6).format("d MMM")}|${(date - 5).format("d MMM")}|${(date - 4).format("d MMM")}|${(date - 3).format("d MMM")}|${(date - 2).format("d MMM")}|${(date - 1).format("d MMM")}|${date.format("d MMM")}|2:|Hrs|4:|Score&chxp=2,50|4,50&chxr=1,0,${topValue+2},2|3,0,100,20&chbh=a,0,5&chm=D,cc0099,2,,3&chdl=Sleep|Presence|Sleep%20Score&chco=5c628f,00e2b1,cc0099&chdlp=t">
+      </div>
 			"""
 	    }
 		def mainHtml = """
