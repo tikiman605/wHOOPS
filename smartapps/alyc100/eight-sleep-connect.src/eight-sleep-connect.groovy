@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY 
+ *	12.01.2017: 1.0 BETA Release 5 - Stop partner credentials being mandatory. Change device creation based on whether partner credentials are present.
  *	12.01.2017: 1.0 BETA Release 4 - Enable changing of SmartApp name.
  *	12.01.2017: 1.0 BETA Release 3b - Remove single instance lock for users with multiple mattresses.
  *	12.01.2017: 1.0 BETA Release 3 - Better messaging within smart app on login errors.
@@ -115,8 +116,8 @@ def partnerLoginPAGE() {
     		section { headerSECTION() }
         	section { paragraph "Enter your Eight Sleep partner account credentials below." }
     		section {
-    			input("partnerUsername", "text", title: "Username", description: "Your Eight Sleep partner username (usually an email address)", required: true)
-				input("partnerPassword", "password", title: "Password", description: "Your Eight Sleep partner password", required: true, submitOnChange: true)
+    			input("partnerUsername", "text", title: "Username", description: "Your Eight Sleep partner username (usually an email address)", required: false)
+				input("partnerPassword", "password", title: "Password", description: "Your Eight Sleep partner password", required: true, submitOnChange: false)
   			}   	
     	}
     }
@@ -126,8 +127,8 @@ def partnerLoginPAGE() {
     		section { headerSECTION() }
         	section { paragraph "Enter your Eight Sleep partner account credentials below." }
     		section("Eight Sleep Partner Credentials:") {
-				input("partnerUsername", "text", title: "Username", description: "Your Eight Sleep partner username (usually an email address)", required: true)
-				input("partnerPassword", "password", title: "Password", description: "Your Eight Sleep partner password", required: true, submitOnChange: true)	
+				input("partnerUsername", "text", title: "Username", description: "Your Eight Sleep partner username (usually an email address)", required: false)
+				input("partnerPassword", "password", title: "Password", description: "Your Eight Sleep partner password", required: true, submitOnChange: false)	
 			}    	
     	
     		if (statePartnerTokenPresent()) {
@@ -283,34 +284,40 @@ def addEightSleep() {
     	def resp = apiGET("/devices/${device}?filter=ownerId,leftUserId,rightUserId")
         if (resp.status == 200) {
         	//Add left side of mattress as device
+            def ownerId = resp.data.result.ownerId
         	def leftUserId = resp.data.result.leftUserId
-			def childDevice = getChildDevice("${device}/${leftUserId}")
-        	if (!childDevice && state.eightSleepDevices[device] != null) {
-    			log.info("Adding device ${device}/${leftUserId}: ${state.eightSleepDevices[device]} [Left]")
-				def data = [
-            		name: "${state.eightSleepDevices[device]} [Left]",
-					label: "${state.eightSleepDevices[device]} [Left]"
-				]
-            	childDevice = addChildDevice(app.namespace, "Eight Sleep Mattress", "${device}/${leftUserId}", null, data)
-				log.debug "Created ${state.eightSleepDevices[device]} [Left] with id: ${device}/${leftUserId}"
-			} else {
-				log.debug "found ${state.eightSleepDevices[device]} [Left] with id ${device}/${leftUserId} already exists"
-			}
-        	
+            def rightUserId = resp.data.result.rightUserId
+            def childDevice
+            if ((leftUserId == ownerId) || (partnerAuthenticated())) {
+            	childDevice = getChildDevice("${device}/${leftUserId}")
+        		if (!childDevice && state.eightSleepDevices[device] != null) {
+    				log.info("Adding device ${device}/${leftUserId}: ${state.eightSleepDevices[device]} [Left]")
+					def data = [
+            			name: "${state.eightSleepDevices[device]} [Left]",
+						label: "${state.eightSleepDevices[device]} [Left]"
+					]
+            		childDevice = addChildDevice(app.namespace, "Eight Sleep Mattress", "${device}/${leftUserId}", null, data)
+					log.debug "Created ${state.eightSleepDevices[device]} [Left] with id: ${device}/${leftUserId}"
+				} else {
+					log.debug "found ${state.eightSleepDevices[device]} [Left] with id ${device}/${leftUserId} already exists"
+				}
+        	}
+            
             //Add right side of mattress as device
-        	def rightUserId = resp.data.result.rightUserId
-            childDevice = getChildDevice("${device}/${rightUserId}")
-        	if (!childDevice && state.eightSleepDevices[device] != null) {
-    			log.info("Adding device ${device}/${rightUserId}: ${state.eightSleepDevices[device]} [Right]")
-				def data = [
-            		name: "${state.eightSleepDevices[device]} [Right]",
-					label: "${state.eightSleepDevices[device]} [Right]"
-				]
-            	childDevice = addChildDevice(app.namespace, "Eight Sleep Mattress", "${device}/${rightUserId}", null, data)
-				log.debug "Created ${state.eightSleepDevices[device]} [Right] with id: ${device}/${rightUserId}"
-			} else {
-				log.debug "found ${state.eightSleepDevices[device]} [Right] with id ${device}/${rightUserId} already exists"
-			}
+        	if ((rightUserId == ownerId) || (partnerAuthenticated())) {
+            	childDevice = getChildDevice("${device}/${rightUserId}")
+        		if (!childDevice && state.eightSleepDevices[device] != null) {
+    				log.info("Adding device ${device}/${rightUserId}: ${state.eightSleepDevices[device]} [Right]")
+					def data = [
+            			name: "${state.eightSleepDevices[device]} [Right]",
+						label: "${state.eightSleepDevices[device]} [Right]"
+					]
+            		childDevice = addChildDevice(app.namespace, "Eight Sleep Mattress", "${device}/${rightUserId}", null, data)
+					log.debug "Created ${state.eightSleepDevices[device]} [Right] with id: ${device}/${rightUserId}"
+				} else {
+					log.debug "found ${state.eightSleepDevices[device]} [Right] with id ${device}/${rightUserId} already exists"
+				}
+            }
 		} else {
 			log.error("Non-200 from device list call. ${resp.status} ${resp.data}")
 			return []
