@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	13.01.2017: 1.0 BETA Release 6c - 8Slp Event minor fixes. Not important to functionality.
  *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
  *	13.01.2017: 1.0 BETA Release 6 - Changes to bed presence contact behaviour.
  *								   - Handle scenario of no partner credentials. 
@@ -228,24 +229,28 @@ def poll() {
     
     //If presence start value has changed then assume something is going on.
     if (state.lastPresenceStartValue) {
-    	 if ((presenceStart != state.lastPresenceStartValue) && (contactState == "open")) {
-         	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.")
-        	//Stop wake up analysis if a bed presence event flagged by 8slp API.
-        	stopWakeUpAnalysis()
-            //Set recorded heat level on sleep
-            state.heatLevelOnSleep = currentHeatLevel
-            //Start skeep analysis to detect 'in bed' patterns.
-            startSleepAnalysis()
+    	 if (presenceStart != state.lastPresenceStartValue) {
+         	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
+            if(contactState == "open") {
+         		//Stop wake up analysis if a bed presence event flagged by 8slp API.
+        		stopWakeUpAnalysis()
+            	//Set recorded heat level on sleep
+            	state.heatLevelOnSleep = currentHeatLevel
+            	//Start skeep analysis to detect 'in bed' patterns.
+            	startSleepAnalysis()
+            }
         }
     }
     
     //If 8slp flags bed left event, start wake up analysis process in 7 minutes time.
     if (state.lastPresenceEndValue) {
-    	if ((presenceEnd != state.lastPresenceEndValue) && (contactState == "closed")) {
+    	if (presenceEnd != state.lastPresenceEndValue) {
         	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
-        	//Set recorded heat level on wake up.
-        	state.heatLevelOnWakeUp = currentHeatLevel
-            runIn(7*60, startWakeUpAnalysis)
+        	if (contactState == "closed") {
+        		//Set recorded heat level on wake up.
+        		state.heatLevelOnWakeUp = currentHeatLevel
+            	runIn(7*60, startWakeUpAnalysis)
+            }
         }
     }
     
