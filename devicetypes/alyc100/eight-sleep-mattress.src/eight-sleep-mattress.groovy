@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
  *	13.01.2017: 1.0 BETA Release 6 - Changes to bed presence contact behaviour.
  *								   - Handle scenario of no partner credentials. 
  *	13.01.2017: 1.0 BETA Release 5 - Historical sleep chart improvements showing SleepScore.
@@ -170,9 +171,9 @@ def poll() {
     def currentHeatLevel = 0
     def nowHeating = false
     def targetHeatingLevel = 0
-    def timer = 0
     def presenceStart = 0
     def presenceEnd = 0
+    def timer = 0
     state.isOwner = (device.deviceNetworkId.tokenize("/")[1] == resp.data.result.ownerId)
     if (device.deviceNetworkId.tokenize("/")[1] == resp.data.result.leftUserId) {
     	state.bedSide = "left"
@@ -180,6 +181,7 @@ def poll() {
         currentHeatLevel = resp.data.result.leftHeatingLevel as Integer
         if (nowHeating) {
         	timer = resp.data.result.leftHeatingDuration
+            state.heatTimeLeft = timer
         }
         targetHeatingLevel = resp.data.result.leftTargetHeatingLevel as Integer
         presenceStart = resp.data.result.leftPresenceStart as Integer
@@ -191,6 +193,7 @@ def poll() {
         currentHeatLevel = resp.data.result.rightHeatingLevel as Integer
         if (nowHeating) {
         	timer = resp.data.result.rightHeatingDuration
+            state.heatTimeLeft = timer
         }
         targetHeatingLevel = resp.data.result.rightTargetHeatingLevel as Integer
         presenceStart = resp.data.result.rightPresenceStart as Integer
@@ -337,13 +340,21 @@ def on() {
 	log.debug "Executing 'on'"
 	// TODO: handle 'on' command
     def body
+    def currSwitchState = device.currentState("switch").getValue()
+    def duration
+    if ((currSwitchState == "off") || (!state.heatTimeLeft)) { 
+    	duration = state.heatingDuration * 60
+    } else { 
+    	duration = state.heatTimeLeft
+    }
+    
 	if (state.bedSide && state.bedSide == "left") {
     	body = [ 
-        	"leftHeatingDuration": "${state.heatingDuration * 60}"
+        	"leftHeatingDuration": "${duration}"
         ]
 	} else {
     	body = [ 
-        	"rightHeatingDuration": "${state.heatingDuration * 60}"
+        	"rightHeatingDuration": "${duration}"
         ]
     }
     parent.apiPUT("/devices/${device.deviceNetworkId.tokenize("/")[0]}", body)
