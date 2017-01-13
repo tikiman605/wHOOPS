@@ -182,7 +182,6 @@ def poll() {
         currentHeatLevel = resp.data.result.leftHeatingLevel as Integer
         if (nowHeating) {
         	timer = resp.data.result.leftHeatingDuration
-            state.heatTimeLeft = timer
         }
         targetHeatingLevel = resp.data.result.leftTargetHeatingLevel as Integer
         presenceStart = resp.data.result.leftPresenceStart as Integer
@@ -194,7 +193,6 @@ def poll() {
         currentHeatLevel = resp.data.result.rightHeatingLevel as Integer
         if (nowHeating) {
         	timer = resp.data.result.rightHeatingDuration
-            state.heatTimeLeft = timer
         }
         targetHeatingLevel = resp.data.result.rightTargetHeatingLevel as Integer
         presenceStart = resp.data.result.rightPresenceStart as Integer
@@ -346,22 +344,19 @@ def on() {
 	// TODO: handle 'on' command
     def body
     def currSwitchState = device.currentState("switch").getValue()
-    def duration
-    if ((currSwitchState == "off") || (!state.heatTimeLeft)) { 
-    	duration = state.heatingDuration * 60
-    } else { 
-    	duration = state.heatTimeLeft
+    if (currSwitchState == "off") { 
+    	if (state.bedSide && state.bedSide == "left") {
+    		body = [ 
+        		"leftHeatingDuration": "${duration}"
+        	]
+		} else {
+    		body = [ 
+        		"rightHeatingDuration": "${duration}"
+        	]
+    	}
     }
     
-	if (state.bedSide && state.bedSide == "left") {
-    	body = [ 
-        	"leftHeatingDuration": "${duration}"
-        ]
-	} else {
-    	body = [ 
-        	"rightHeatingDuration": "${duration}"
-        ]
-    }
+	
     parent.apiPUT("/devices/${device.deviceNetworkId.tokenize("/")[0]}", body)
     runIn(3, refresh)
 }
