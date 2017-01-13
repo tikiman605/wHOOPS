@@ -355,8 +355,6 @@ def on() {
         	]
     	}
     }
-    
-	
     parent.apiPUT("/devices/${device.deviceNetworkId.tokenize("/")[0]}", body)
     runIn(3, refresh)
 }
@@ -365,14 +363,17 @@ def off() {
 	log.debug "Executing 'off'"
 	// TODO: handle 'off' command
     def body
-	if (state.bedSide && state.bedSide == "left") {
-    	body = [ 
-        	"leftHeatingDuration": 0
-        ]
-	} else {
-    	body = [ 
-        	"rightHeatingDuration": 0
-        ]
+    def currSwitchState = device.currentState("switch").getValue()
+    if (currSwitchState == "on") { 
+		if (state.bedSide && state.bedSide == "left") {
+    		body = [ 
+        		"leftHeatingDuration": 0
+        	]
+		} else {
+    		body = [ 
+        		"rightHeatingDuration": 0
+        	]
+    	}
     }
     parent.apiPUT("/devices/${device.deviceNetworkId.tokenize("/")[0]}", body)
     runIn(3, refresh)
