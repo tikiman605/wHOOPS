@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+*	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
  *	13.01.2017: 1.0 BETA Release 6c - 8Slp Event minor fixes. Not important to functionality.
  *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
  *	13.01.2017: 1.0 BETA Release 6 - Changes to bed presence contact behaviour.
@@ -228,13 +229,11 @@ def poll() {
     //If presence start value has changed then assume something is going on.
     if (state.lastPresenceStartValue) {
     	 if (presenceStart != state.lastPresenceStartValue) {
-         	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
-            if(contactState == "open") {
-         		//Stop wake up analysis if a bed presence event flagged by 8slp API.
-        		stopWakeUpAnalysis()
+         	if((contactState == "open") && (!state.analyzeSleep)) {
+            	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
             	//Set recorded heat level on sleep
             	state.heatLevelOnSleep = currentHeatLevel
-            	//Start skeep analysis to detect 'in bed' patterns.
+            	//Start sleep analysis to detect 'in bed' patterns.
             	startSleepAnalysis()
             }
         }
@@ -243,10 +242,11 @@ def poll() {
     //If 8slp flags bed left event, start wake up analysis process in 7 minutes time.
     if (state.lastPresenceEndValue) {
     	if (presenceEnd != state.lastPresenceEndValue) {
-        	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
-        	if (contactState == "closed") {
-        		//Set recorded heat level on wake up.
+        	if ((contactState == "closed") && (!state.analyzeWakeUp)) {
+            	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
+        		//Set recorded heat level on wake up event.
         		state.heatLevelOnWakeUp = currentHeatLevel
+                //Start wake up analysis to detect 'out of bed' patterns.
             	runIn(7*60, startWakeUpAnalysis)
             }
         }
@@ -272,22 +272,24 @@ def poll() {
         //Does heatlevel changes find any patterns?
     	if (state.lastCurrentHeatLevel) {
         	
-            def bodyLeft = false
-            //Check for substantial bed heat loss.
+            //Check for substantial bed heat loss, assume this warm body has left bed.
             if ((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2])) {
-            	if ((state.heatLevelOnWakeUp - currentHeatLevel) >= 10) {
-                	bodyLeft = true
+            	if ((contactState == "closed") && ((state.heatLevelOnWakeUp - currentHeatLevel) >= 10)) {
+                	setOutOfBed()
+                	stopWakeUpAnalysis()
+                	unschedule('stopWakeUpAnalysis')
                 }
             }
-            
-        	//Bed is cooling fast, assume this warm body has left bed.
-            if ((contactState == "closed") && (bodyLeft || ((heatDelta <= 5) && (heatDelta > -5)))) {
-            	setOutOfBed()
-                stopWakeUpAnalysis()
-                unschedule('stopWakeUpAnalysis')
+        }
+    } else {
+    	//Fast heat loss or current heat level matches desired heat level, assume nobody is present
+        if (contactState == "closed") {
+        	if (((heatDelta <= 5) && (heatDelta > -5)) || (((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2]) && (state.heatLevelHistory[2] < state.heatLevelHistory[3])) && ((state.heatLevelHistory[0] - state.heatLevelHistory[3]) >= ((state.heatLevelHistory[0] * 0.15) as Integer)))) {
+        		setOutOfBed()
             }
         }
     }
+    
     state.lastCurrentHeatLevel = currentHeatLevel
     state.lastDesiredLevel = state.desiredLevel
     state.lastPresenceStartValue = presenceStart
@@ -319,6 +321,7 @@ def setOutOfBed() {
 def startWakeUpAnalysis() {
 	log.debug "Starting wake up analysis"
 	state.analyzeWakeUp = true
+    unschedule('stopWakeUpAnalysis')
     runIn(37*60, stopWakeUpAnalysis)
 }
 
@@ -331,6 +334,7 @@ def stopWakeUpAnalysis() {
 def startSleepAnalysis() {
 	log.debug "Starting sleep analysis"
 	state.analyzeSleep = true
+    unschedule('stopSleepAnalysis')
     runIn(17*60, stopSleepAnalysis)
 }
 
