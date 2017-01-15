@@ -519,7 +519,7 @@ def logErrors(options = [errorReturn: null, logObject: log], Closure c) {
 }
 
 private def textVersion() {
-    def text = "Eight Sleep (Connect)\nVersion: 1.0 BETA Release 3b\nDate: 12012017(2030)"
+    def text = "Eight Sleep (Connect)\nVersion: 1.0 BETA Release 5\nDate: 13012017(1830)"
 }
 
 private def textCopyright() {
