@@ -13,8 +13,9 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
-*   15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
-*	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
+ *  15.01.2017: 1.0 BETA Release 7c - Bug Fix. Time zone support. Added device handler version information.
+ *  15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
+ *	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
  *	13.01.2017: 1.0 BETA Release 6c - 8Slp Event minor fixes. Not important to functionality.
  *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
  *	13.01.2017: 1.0 BETA Release 6 - Changes to bed presence contact behaviour.
@@ -132,6 +133,10 @@ metadata {
 			state("default", label:'${currentValue}')
 		}
         
+        valueTile("version", "device.version", inactiveLabel: false, decoration: "flat", width: 4, height: 1) {
+			state("default", label:'${currentValue}')
+		}
+        
         standardTile("heatingDurationUp", "device.heatingDurationUp", width: 1, height: 1, canChangeIcon: false, inactiveLabel: false, decoration: "flat") {
 			state "heatingDurationUp", label:'  ', action:"heatingDurationUp", icon:"st.thermostat.thermostat-up", backgroundColor:"#ffffff"
 		}
@@ -143,7 +148,7 @@ metadata {
         htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
-    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "presence", "currentHeatLevel", "refresh", "chartHTML", "network", "status"])
+    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "presence", "currentHeatLevel", "refresh", "chartHTML", "network", "status", "version"])
        
 	}
 }
@@ -214,8 +219,10 @@ def poll() {
     	state.heatingDuration = 180
     	sendEvent("name":"heatingDuration", "value": convertSecondsToString(state.heatingDuration * 60), displayed: false)
     }
-    sendEvent(name: "status", value: "Last update:\n" + Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", resp.data.result.lastHeard).format("EEE, d MMM yyyy HH:mm:ss"), displayed: false )
-    
+    def df = new java.text.SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss")
+	if (getTimeZone()) { df.setTimeZone(location.timeZone) }
+    sendEvent(name: "status", value: "Last update:\n" + df.format(Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", resp.data.result.lastHeard)), displayed: false )
+    sendEvent(name: "version", value: textVersion(), displayed: false)
     //BED PRESENCE LOGIC
     log.debug "Last 5 heat readings: $state.heatLevelHistory"
     def contactState = device.currentState("contact").getValue()
@@ -272,8 +279,7 @@ def poll() {
         
         //Does heatlevel changes find any patterns?
     	if (state.lastCurrentHeatLevel) {
-        	
-            //Check for substantial bed heat loss, assume this warm body has left bed.
+        	//Check for substantial bed heat loss, assume this warm body has left bed.
             if ((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2])) {
             	if ((contactState == "closed") && ((state.heatLevelOnWakeUp - currentHeatLevel) >= 10)) {
                 	setOutOfBed()
@@ -521,10 +527,12 @@ def addCurrentHeatLevelToHistoricalArray(heatLevel) {
 //Chart data rendering
 def getHistoricalSleepData(fromDate, toDate) {
 	def result = ""
+    def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
+	if (getTimeZone()) { df.setTimeZone(location.timeZone) }
 	if (state.isOwner) {
-		result = parent.apiGET("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${fromDate.format("yyyy-MM-dd")}&to=${toDate.format("yyyy-MM-dd")}")
+		result = parent.apiGET("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${df.format(fromDate)}&to=${df.format(toDate)}")
     } else if (parent.partnerAuthenticated()) {
-    	result = parent.apiGETWithPartner("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${fromDate.format("yyyy-MM-dd")}&to=${toDate.format("yyyy-MM-dd")}")
+    	result = parent.apiGETWithPartner("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${df.format(fromDate)}&to=${df.format(toDate)}")
     }
     result
 }
@@ -667,3 +675,8 @@ def getFileBase64(url, preType, fileType) {
 }
 
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
+
+private def textVersion() {
+    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 7c\nDate: 15012017(2100)"
+}
+
