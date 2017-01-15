@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+*   15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command.
 *	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
  *	13.01.2017: 1.0 BETA Release 6c - 8Slp Event minor fixes. Not important to functionality.
  *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
@@ -348,6 +349,7 @@ def on() {
 	// TODO: handle 'on' command
     def body
     def currSwitchState = device.currentState("switch").getValue()
+    def duration = state.heatingDuration * 60
     if (currSwitchState == "off") { 
     	if (state.bedSide && state.bedSide == "left") {
     		body = [ 
