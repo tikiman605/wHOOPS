@@ -13,7 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
-*   15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command.
+*   15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
 *	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
  *	13.01.2017: 1.0 BETA Release 6c - 8Slp Event minor fixes. Not important to functionality.
  *	13.01.2017: 1.0 BETA Release 6b - Bug fix. Stop timer being reset when 'on' command is sent while device is already on.
@@ -285,7 +285,7 @@ def poll() {
     } else {
     	//Fast heat loss or current heat level matches desired heat level, assume nobody is present
         if (contactState == "closed") {
-        	if (((heatDelta <= 5) && (heatDelta > -5)) || (((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2]) && (state.heatLevelHistory[2] < state.heatLevelHistory[3])) && ((state.heatLevelHistory[0] - state.heatLevelHistory[3]) >= ((state.heatLevelHistory[0] * 0.15) as Integer)))) {
+        	if (((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2]) && (state.heatLevelHistory[2] < state.heatLevelHistory[3])) && (((heatDelta <= 5) && (heatDelta > -5)) || ((state.heatLevelHistory[0] - state.heatLevelHistory[3]) >= ((state.heatLevelHistory[0] * 0.15) as Integer)))) {
         		setOutOfBed()
             }
         }
