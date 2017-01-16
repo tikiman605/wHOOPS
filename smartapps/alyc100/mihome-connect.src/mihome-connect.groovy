@@ -333,23 +333,20 @@ def updateDevices() {
         }
         else if (device.device_type == 'socket') {
         	log.debug "Identified: device ${device.id}: ${device.device_type}: ${device.label}"
+            selectors.add("${device.id}")
             def value = "${device.label} Wall Socket"
 			def key = device.id
 			state.miSocketDevices["${key}"] = value
             
             //Update names of devices with MiHome
-            0.upto(1, {
-            	selectors.add("${device.id}/${it}")
-   				def childDevice = getChildDevice("${device.id}/${it}")
-                
-                if (childDevice) {
+            	def childDevice = getChildDevice("${device.id}")
+                 if (childDevice) {
      				//Update name of device if different.
-     				if(childDevice.name != device.label + " Wall Socket [Socket ${it + 1}]") {
-						childDevice.name = device.label + " Wall Socket [Socket ${it + 1}]"
+     				if(childDevice.name != device.label + " Wall Socket") {
+						childDevice.name = device.label + " Wall Socket"
 						log.debug "Device's name has changed."
 					}
      			}
-            })
         }
        	else if (device.device_type == 'control') {
         	log.debug "Identified: device ${device.id}: ${device.device_type}: ${device.label}"
