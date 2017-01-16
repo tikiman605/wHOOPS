@@ -14,6 +14,7 @@
  *
  *	VERSION HISTORY
  *
+ *	16.01.2017: 2.0.1b - Bug fix. Wrong implementation of double wall socket fixed.
  *	16.01.2017: 2.0.1 - Added support for MiHome Double Wall Socket
  *	09.01.2017: 2.0c - Added support for MiHome House Monitor
  *  12.12.2016:	2.0b - Null issues when a device has been forced removed.
@@ -82,6 +83,9 @@ def firstPage() {
                 section ("Choose your MiHome devices:") {
 					href("selectDevicePAGE", title: null, description: devicesSelected() ? getDevicesSelectedString() : "Tap to select MiHome devices", state: devicesSelected())
         		}
+                section () {
+                	label name: "name", title: "Assign a Name", required: true, state: (name ? "complete" : null), defaultValue: app.name
+                }
             } else {
             	section {
             		paragraph "There was a problem connecting to MiHome. Check your user credentials and error logs in SmartThings web console.\n\n${state.loginerrors}"
@@ -310,7 +314,7 @@ def updateDevices() {
 				}
      		}
         }
-        else if (device.device_type == 'legacy') {
+        else if (device.device_type == 'legacy' || device.device_type == 'socket') {
         	log.debug "Identified: device ${device.id}: ${device.device_type}: ${device.label}"
             selectors.add("${device.id}")
             def value = "${device.label} Adapter"
@@ -359,26 +363,6 @@ def updateDevices() {
      				//Update name of device if different.
      				if(childDevice.name != device.label + " 4 Gang Extension [Socket ${it + 1}]") {
 						childDevice.name = device.label + " 4 Gang Extension [Socket ${it + 1}]"
-						log.debug "Device's name has changed."
-					}
-     			}
-            })
-        }
-        else if (device.device_type == 'socket') {
-        	log.debug "Identified: device ${device.id}: ${device.device_type}: ${device.label}"
-            def value = "${device.label} Wall Socket"
-			def key = device.id
-			state.miSocketDevices["${key}"] = value
-            
-            //Update names of devices with MiHome
-            0.upto(1, {
-            	selectors.add("${device.id}/${it}")
-   				def childDevice = getChildDevice("${device.id}/${it}")
-                
-                if (childDevice) {
-     				//Update name of device if different.
-     				if(childDevice.name != device.label + " Wall Socket [Socket ${it + 1}]") {
-						childDevice.name = device.label + " Wall Socket [Socket ${it + 1}]"
 						log.debug "Device's name has changed."
 					}
      			}
@@ -555,23 +539,21 @@ def addSocket() {
 	updateDevices()
 
 	selectedSockets.each { device ->
-    	0.upto(1, {
             def childDevice = getChildDevice("${device}/${it}")
             
             if (!childDevice && state.miSocketDevices[device] != null) {
-    			log.info("Adding device ${device}/${it}: ${state.miSocketDevices[device]} [Socket ${it + 1}]")
+    			log.info("Adding device ${device}: ${state.miSocketDevices[device]}")
 
         		def data = [
-                	name: "${state.miSocketDevices[device]} [Socket ${it + 1}]",
-					label: "${state.miSocketDevices[device]} [Socket ${it + 1}]"
+                	name: "${state.miSocketDevices[device]}",
+					label: "${state.miSocketDevices[device]}"
 				]
-            	childDevice = addChildDevice(app.namespace, "MiHome Adapter", "${device}/${it}", null, data)
+            	childDevice = addChildDevice(app.namespace, "MiHome Adapter", "${device}", null, data)
 
-				log.debug "Created ${state.miSocketDevices[device]} [Socket ${it + 1}] with id: ${device}/${it}"
+				log.debug "Created ${state.miSocketDevices[device]} with id: ${device}"
 			} else {
-				log.debug "found ${state.miSocketDevices[device]} [Socket ${it + 1}] with id ${device}/${it} already exists"
+				log.debug "found ${state.miSocketDevices[device]} with id ${device}} already exists"
 			}
-		})
 	}
 }
 
@@ -589,7 +571,7 @@ def addMonitor() {
                 	name: state.miMonitorDevices[device],
 					label: state.miMonitorDevices[device]
 				]
-            childDevice = addChildDevice(app.namespace, "MiHome Monitor", "$device", null, data)\
+            childDevice = addChildDevice(app.namespace, "MiHome Monitor", "$device", null, data)
 
 			log.debug "Created ${state.miMonitorDevices[device]} with id: ${device}"
 		} else {
