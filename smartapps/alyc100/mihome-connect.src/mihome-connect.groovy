@@ -14,6 +14,7 @@
  *
  *	VERSION HISTORY
  *
+ *	16.01.2017: 2.0.1 - Added support for MiHome Double Wall Socket
  *	09.01.2017: 2.0c - Added support for MiHome House Monitor
  *  12.12.2016:	2.0b - Null issues when a device has been forced removed.
  *  23.11.2016:	2.0 - Remove extra logging.
@@ -135,6 +136,7 @@ def selectDevicePAGE() {
             input "selectedAdapters", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome-adapter.png", required:false, title:"Select MiHome Adapter Devices \n(${state.miAdapterDevices.size() ?: 0} found)", multiple:true, options:state.miAdapterDevices
             input "selectedAdapterPluses", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome-monitor.png", required:false, title:"Select MiHome Adapter Plus Devices \n(${state.miAdapterPlusDevices.size() ?: 0} found)", multiple:true, options:state.miAdapterPlusDevices
             input "selected4GangExtensions", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome-extension.png", required:false, title:"Select MiHome 4 Gang Extension Devices \n(${state.mi4GangExtensionDevices.size() ?: 0} found)", multiple:true, options:state.mi4GangExtensionDevices
+            input "selectedSockets", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome2-socket.png", required:false, title:"Select MiHome Wall Socket Devices \n(${state.miSocketDevices.size() ?: 0} found)", multiple:true, options:state.miSocketDevices
             input "selectedMonitors", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome5-adapter.png", required:false, title:"Select MiHome Monitor Devices \n(${state.miMonitorDevices.size() ?: 0} found)", multiple:true, options:state.miMonitorDevices
 			input "selectedMotions", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/mihome-motion-sensor-ir.png", required:false, title:"Select MiHome Motion Sensors \n(${state.miMotionSensors.size() ?: 0} found)", multiple:true, options:state.miMotionSensors
     }
@@ -155,11 +157,11 @@ def authenticated() {
 }
 
 def devicesSelected() {
-	return (selectedETRVs || selectedLights || selectedAdapters || selectedAdapterPluses || selected4GangExtensions || selectedMonitors || selectedMotions) ? "complete" : null
+	return (selectedETRVs || selectedLights || selectedAdapters || selectedAdapterPluses || selected4GangExtensions || selectedSockets || selectedMonitors || selectedMotions) ? "complete" : null
 }
 
 def getDevicesSelectedString() {
-	if (state.miETRVDevices == null || state.miLightDevices == null || state.miAdapterDevices == null || state.miAdapterPlusDevices == null || state.mi4GangExtensionDevices == null || state.miMonitorDevices == null || state.miMotionSensors == null) {
+	if (state.miETRVDevices == null || state.miLightDevices == null || state.miAdapterDevices == null || state.miAdapterPlusDevices == null || state.mi4GangExtensionDevices == null || state.miSocketDevices == null || state.miMonitorDevices == null || state.miMotionSensors == null) {
     	updateDevices()
   	}
     
@@ -178,6 +180,9 @@ def getDevicesSelectedString() {
   	}
     selected4GangExtensions.each { childDevice ->
     	if (state.mi4GangExtensionDevices[childDevice] != null) listString += state.mi4GangExtensionDevices[childDevice] + "\n"
+    }
+    selectedSockets.each { childDevice ->
+    	if (state.miSocketDevices[childDevice] != null) listString += state.miSocketDevices[childDevice] + "\n"
     }
     selectedMonitors.each { childDevice ->
     	if (state.miMonitorDevices[childDevice] != null) listString += state.miMonitorDevices[childDevice] + "\n"
@@ -237,6 +242,9 @@ def initialize() {
     if (selected4GangExtensions) {
     	add4GangExtension()
     }
+    if (selectedSockets) {
+    	addSocket()
+    }
     if (selectedMonitors) {
     	addMonitor()
     }
@@ -262,6 +270,7 @@ def updateDevices() {
     state.miAdapterDevices = [:]
     state.miAdapterPlusDevices = [:]
     state.mi4GangExtensionDevices = [:]
+    state.miSocketDevices = [:] 
     state.miMotionSensors = [:]
     state.miMonitorDevices = [:]
 
@@ -350,6 +359,26 @@ def updateDevices() {
      				//Update name of device if different.
      				if(childDevice.name != device.label + " 4 Gang Extension [Socket ${it + 1}]") {
 						childDevice.name = device.label + " 4 Gang Extension [Socket ${it + 1}]"
+						log.debug "Device's name has changed."
+					}
+     			}
+            })
+        }
+        else if (device.device_type == 'socket') {
+        	log.debug "Identified: device ${device.id}: ${device.device_type}: ${device.label}"
+            def value = "${device.label} Wall Socket"
+			def key = device.id
+			state.miSocketDevices["${key}"] = value
+            
+            //Update names of devices with MiHome
+            0.upto(1, {
+            	selectors.add("${device.id}/${it}")
+   				def childDevice = getChildDevice("${device.id}/${it}")
+                
+                if (childDevice) {
+     				//Update name of device if different.
+     				if(childDevice.name != device.label + " Wall Socket [Socket ${it + 1}]") {
+						childDevice.name = device.label + " Wall Socket [Socket ${it + 1}]"
 						log.debug "Device's name has changed."
 					}
      			}
@@ -517,6 +546,30 @@ def add4GangExtension() {
 				log.debug "Created ${state.mi4GangExtensionDevices[device]} [Socket ${it + 1}] with id: ${device}/${it}"
 			} else {
 				log.debug "found ${state.mi4GangExtensionDevices[device]} [Socket ${it + 1}] with id ${device}/${it} already exists"
+			}
+		})
+	}
+}
+
+def addSocket() {
+	updateDevices()
+
+	selectedSockets.each { device ->
+    	0.upto(1, {
+            def childDevice = getChildDevice("${device}/${it}")
+            
+            if (!childDevice && state.miSocketDevices[device] != null) {
+    			log.info("Adding device ${device}/${it}: ${state.miSocketDevices[device]} [Socket ${it + 1}]")
+
+        		def data = [
+                	name: "${state.miSocketDevices[device]} [Socket ${it + 1}]",
+					label: "${state.miSocketDevices[device]} [Socket ${it + 1}]"
+				]
+            	childDevice = addChildDevice(app.namespace, "MiHome Adapter", "${device}/${it}", null, data)
+
+				log.debug "Created ${state.miSocketDevices[device]} [Socket ${it + 1}] with id: ${device}/${it}"
+			} else {
+				log.debug "found ${state.miSocketDevices[device]} [Socket ${it + 1}] with id ${device}/${it} already exists"
 			}
 		})
 	}
