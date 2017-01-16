@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *  15.01.2017: 1.0 BETA Release 7d - Further tweaks to bed presence logic. Fix to chart when missing sleep data.
  *  15.01.2017: 1.0 BETA Release 7c - Bug Fix. Time zone support. Added device handler version information.
  *  15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
  *	12.01.2017: 1.0 BETA Release 7 - Tweaks to bed presence logic.
@@ -263,7 +264,7 @@ def poll() {
     //Sleep analysis logic. When does device know someone is in bed?
     if (state.analyzeSleep) {
     	//If bed temperature has risen or bed heat is above set level, likely someone is lying in bed. 
-    	if ((currentHeatLevel - state.heatLevelOnSleep >= 5) || (heatDelta >= 8)) {
+    	if ((currentHeatLevel - state.heatLevelOnSleep >= 5) || ((heatDelta >= 8) && (currentHeatLevel >= 25))) {
         	setInBed()
             stopSleepAnalysis()
             unschedule('stopSleepAnalysis')
@@ -530,7 +531,7 @@ def getHistoricalSleepData(fromDate, toDate) {
     def df = new java.text.SimpleDateFormat("yyyy-MM-dd")
 	if (getTimeZone()) { df.setTimeZone(location.timeZone) }
 	if (state.isOwner) {
-		result = parent.apiGET("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${df.format(fromDate)}&to=${df.format(toDate)}")
+    	result = parent.apiGET("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${df.format(fromDate)}&to=${df.format(toDate)}")
     } else if (parent.partnerAuthenticated()) {
     	result = parent.apiGETWithPartner("/users/${device.deviceNetworkId.tokenize("/")[1]}/trends?tz=${URLEncoder.encode(getTimeZone().getID())}&from=${df.format(fromDate)}&to=${df.format(toDate)}")
     }
@@ -551,11 +552,12 @@ def addHistoricalSleepToChartData() {
         state.chartData = [0, 0, 0, 0, 0, 0, 0]
         state.chartData2 = [0, 0, 0, 0, 0, 0, 0]
         state.chartData3 = [0, 0, 0, 0, 0, 0, 0]
-        
+        def now = new Date()
         0.upto(days.size() - 1, {
-        	state.chartData[6 - it] = days[it].sleepDuration / 3600  
-            state.chartData2[6 - it] = days[it].presenceDuration / 3600
-            state.chartData3[6 - it] = days[it].score
+        	def dayIndex = (now - Date.parse("yyyy-MM-dd", days[it].day))
+        	state.chartData[dayIndex] = days[it].sleepDuration / 3600  
+            state.chartData2[dayIndex] = days[it].presenceDuration / 3600
+            state.chartData3[dayIndex] = days[it].score
         })
     }
 }
@@ -677,6 +679,6 @@ def getFileBase64(url, preType, fileType) {
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
 
 private def textVersion() {
-    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 7c\nDate: 15012017(2100)"
+    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 7d\nDate: 16012017(1320)"
 }
 
