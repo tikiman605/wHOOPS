@@ -556,7 +556,7 @@ def addSocket() {
 	updateDevices()
 
 	selectedSockets.each { device ->
-            def childDevice = getChildDevice("${device}/${it}")
+            def childDevice = getChildDevice("${device}")
             
             if (!childDevice && state.miSocketDevices[device] != null) {
     			log.info("Adding device ${device}: ${state.miSocketDevices[device]}")
