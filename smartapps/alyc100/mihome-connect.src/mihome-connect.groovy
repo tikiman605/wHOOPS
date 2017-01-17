@@ -728,7 +728,7 @@ def logErrors(options = [errorReturn: null, logObject: log], Closure c) {
 }
 
 private def textVersion() {
-    def text = "MiHome (Connect)\nVersion: 2.0c\nDate: 09012017(2240)"
+    def text = "MiHome (Connect)\nVersion: 2.0.1\nDate: 17012017(1930)"
 }
 
 private def textCopyright() {
