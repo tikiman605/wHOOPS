@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	15.01.2017: 1.0 BETA Release 7e - Bug fix. Mark device as Connected after offline event has finished.
  *  15.01.2017: 1.0 BETA Release 7d - Further tweaks to bed presence logic. Fix to chart when missing sleep data.
  *  15.01.2017: 1.0 BETA Release 7c - Bug Fix. Time zone support. Added device handler version information.
  *  15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
@@ -177,6 +178,7 @@ def poll() {
     	setOffline()
         return []
     }
+    sendEvent(name: 'network', value: "Connected" as String)
     def currentHeatLevel = 0
     def nowHeating = false
     def targetHeatingLevel = 0
