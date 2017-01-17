@@ -13,6 +13,8 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ * 	17-01-2016: 1.5 - Find Me support and stats reporting for D5.
+ *
  * 	12-01-2016: 1.4b - Time zones!.
  * 	12-01-2016: 1.4 - Cleaning map view functionality.
  *
@@ -53,6 +55,7 @@ metadata {
         command "disableSchedule"
         command "resetSmartSchedule"
         command "toggleCleaningMode"
+        command "findMe"
 
 		attribute "network","string"
 		attribute "bin","string"
@@ -133,6 +136,8 @@ metadata {
         standardTile("cleaningMode", "device.cleaningMode", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
 			state("turbo", label:'Turbo Mode', action:"toggleCleaningMode", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_turbo_icon.png")
             state("eco", label:'Eco Mode', action:"toggleCleaningMode", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_eco_icon.png")
+            state("findMe", label:'Find Me', action:"findMe", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_findme_icon.png")
+            state("empty", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_logo.png")
 		}
         
         standardTile("switch", "device.switch", width: 2, height: 2, decoration: "flat") {
@@ -225,6 +230,11 @@ def disableSchedule() {
     runIn(2, refresh)
 }
 
+def findMe() {
+	log.debug "Executing 'findMe'"
+    nucleoPOST("/messages", '{"reqId":"1", "cmd": "findMe"}')
+}
+
 def setOffline() {
 	sendEvent(name: 'network', value: "Not Connected" as String)
     sendEvent(name: "switch", value: "offline")
@@ -270,6 +280,7 @@ def poll() {
     else {
     	if (result.containsKey("meta")) {
         	state.firmware = result.meta.firmware
+            state.modelName = result.meta.modelName
         }
         if (result.containsKey("availableServices")) {
         	state.houseCleaning = result.availableServices.houseCleaning
@@ -284,12 +295,20 @@ def poll() {
         		case "1":
             		sendEvent(name: "status", value: "ready")
                 	sendEvent(name: "switch", value: "off")
-                    statusMsg += "READY TO ${isTurboCleanMode() ? "TURBO" : "ECO"} CLEAN"
+                    if (state.firmware.startsWith("2")) {
+                   		statusMsg += "READY TO ${isTurboCleanMode() ? "TURBO" : "ECO"} CLEAN"
+                    } else {
+                    	statusMsg += "READY TO CLEAN"
+                    }
 				break;
 				case "2":
 					sendEvent(name: "status", value: "cleaning")
                 	sendEvent(name: "switch", value: "on")
-                	statusMsg += "CURRENTLY ${isTurboCleanMode() ? "TURBO" : "ECO"} CLEANING"
+                    if (state.firmware.startsWith("2")) {
+                		statusMsg += "CURRENTLY ${isTurboCleanMode() ? "TURBO" : "ECO"} CLEANING"
+                    } else {
+                    	statusMsg += "CURRENTLY CLEANING"
+                    }
 				break;
             	case "3":
 					sendEvent(name: "status", value: "paused")
@@ -409,6 +428,12 @@ def poll() {
                 }
             }
         }
+        if (state.modelName == "BotVacD5Connected") {
+        	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
+        } else if (state.modelName == "BotVacD3Connected") {
+        	sendEvent(name: 'cleaningMode', value: "empty", displayed: false)
+        }
+        
         if (result.containsKey("details")) {
         	if (result.details.isDocked) {
             	sendEvent(name: 'dockStatus', value: "docked" as String)

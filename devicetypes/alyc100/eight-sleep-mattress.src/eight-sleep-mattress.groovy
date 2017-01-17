@@ -13,7 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
- *	15.01.2017: 1.0 BETA Release 7e - Bug fix. Mark device as Connected after offline event has finished.
+ *	15.01.2017: 1.0 BETA Release 7e - Bug fix. Mark device as Connected after offline event has finished. More tweaks to bed presence logic.
  *  15.01.2017: 1.0 BETA Release 7d - Further tweaks to bed presence logic. Fix to chart when missing sleep data.
  *  15.01.2017: 1.0 BETA Release 7c - Bug Fix. Time zone support. Added device handler version information.
  *  15.01.2017: 1.0 BETA Release 7b - Bug Fix. Broken heat duration being sent on 'ON' command. Tweak to 'out of bed' detection.
@@ -294,7 +294,7 @@ def poll() {
     } else {
     	//Fast heat loss or current heat level matches desired heat level, assume nobody is present
         if (contactState == "closed") {
-        	if (((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2]) && (state.heatLevelHistory[2] < state.heatLevelHistory[3])) && (((heatDelta <= 5) && (heatDelta > -5)) || ((state.heatLevelHistory[0] - state.heatLevelHistory[3]) >= ((state.heatLevelHistory[0] * 0.15) as Integer)))) {
+        	if (((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2]) && (state.heatLevelHistory[2] < state.heatLevelHistory[3])) && ((currentHeatLevel < 25) || ((heatDelta <= 5) && (heatDelta > -5)) || ((state.heatLevelHistory[0] - state.heatLevelHistory[3]) >= ((state.heatLevelHistory[0] * 0.15) as Integer)))) {
         		setOutOfBed()
             }
         }
