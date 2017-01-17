@@ -13,7 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
- * 	17-01-2016: 1.5 - Find Me support and stats reporting for D5.
+ * 	17-01-2016: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
  *
  * 	12-01-2016: 1.4b - Time zones!.
  * 	12-01-2016: 1.4 - Cleaning map view functionality.
@@ -524,7 +524,6 @@ def nucleoPOST(path, body) {
 	try {
 		log.debug("Beginning API POST: ${nucleoURL(path)}, ${body}")
 		def date = new Date().format("EEE, dd MMM yyyy HH:mm:ss z", TimeZone.getTimeZone('GMT'))
-        log.debug getHMACSignature(date, body)
 		httpPostJson(uri: nucleoURL(path), body: body, headers: nucleoRequestHeaders(date, getHMACSignature(date, body)) ) {response ->
 			parent.logResponse(response)
 			return response
@@ -570,14 +569,15 @@ Map nucleoRequestHeaders(date, HMACsignature) {
 
 def getMapHTML() {
 	try {
-    	def resp = parent.beehiveGET("/users/me/robots/${device.deviceNetworkId.tokenize("|")[0]}/maps")
+    	def df = new java.text.SimpleDateFormat("MMM d, yyyy h:mm a")
+		if (parent.getTimeZone()) { df.setTimeZone(location.timeZone) }
+    	def resp
         def hData = ""
         if (state.firmware.startsWith("2.2")) {
+        	resp = parent.beehiveGET("/users/me/robots/${device.deviceNetworkId.tokenize("|")[0]}/maps")
         	if (resp.data.maps.size() > 0) {
             	def mapUrl = resp.data.maps[0].url
                 def generated_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", resp.data.maps[0].generated_at)
-                def df = new java.text.SimpleDateFormat("MMM d, yyyy h:mm a")
-				if (parent.getTimeZone()) { df.setTimeZone(location.timeZone) }
                 def cleaned_area = resp.data.maps[0].cleaned_area
                 def start_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", resp.data.maps[0].start_at)
                 def end_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", resp.data.maps[0].end_at)
@@ -588,16 +588,31 @@ def getMapHTML() {
 					<col width="50%">
 					<col width="50%">
 					<thead>
-						<th>Area Cleaned (m&#178;)</th>
-						<th>Cleaning Time (hours)</th>
+						<th>Area Cleaned</th>
+						<th>Cleaning Time</th>
 					</thead>
 					<tbody>
 						<tr>
-							<td>${cleaned_area}</td>
-							<td>${getCleaningTime(start_at, end_at)}</td>
+							<td>${cleaned_area} m&#178;</td>
+							<td>${getCleaningTime(start_at, end_at)} hours</td>
 						</tr>
 					</tbody>
-				</table></div>
+				</table>
+                <table>
+					<col width="50%">
+					<col width="50%">
+					<thead>
+						<th>Status</th>
+						<th>Launched From</th>
+					</thead>
+					<tbody>
+						<tr>
+							<td>${resp.data.maps[0].status.capitalize()}</td>
+							<td>${resp.data.maps[0].launched_from.capitalize()}</td>
+						</tr>
+					</tbody>
+				</table>
+                </div>
 				"""
             } else {
             	hData = """
@@ -607,11 +622,84 @@ def getMapHTML() {
 				</div>
             """
             }
+        } else if (state.modelName == "BotVacD5Connected"){
+        	resp = nucleoPOST("/messages", '{"reqId":"1", "cmd":"getLocalStats"}')
+            def cleaned_area = resp.data.data.houseCleaning.history[0].area
+            def start_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'",  resp.data.data.houseCleaning.history[0].start)
+            def end_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'",  resp.data.data.houseCleaning.history[0].end)
+        	hData = """
+            	<h4 style="font-size: 18px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Statistics ${df.format(end_at)}</h4>
+                <table>
+					<col width="50%">
+					<col width="50%">
+					<thead>
+						<th>Area Cleaned</th>
+						<th>Cleaning Time</th>
+					</thead>
+					<tbody>
+						<tr>
+							<td>${cleaned_area} m&#178;</td>
+							<td>${getCleaningTime(start_at, end_at)} hours</td>
+						</tr>
+					</tbody>
+				</table>
+                <table>
+					<col width="50%">
+					<col width="50%">
+					<thead>
+						<th>Completed</th>
+						<th>Launched From</th>
+					</thead>
+					<tbody>
+						<tr>
+							<td>${resp.data.data.houseCleaning.history[0].completed ? "Yes" : "No"}</td>
+							<td>${resp.data.data.houseCleaning.history[0].launchedFrom.capitalize()}</td>
+						</tr>
+					</tbody>
+				</table><br/>
+                <h4 style="font-size: 18px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Lifetime Statistics</h4>
+				<table>
+					<col width="50%">
+					<col width="50%">
+					<thead>
+						<th>Total Cleaned Area</th>
+						<th>Average Cleaned Area</th>
+					</thead>
+					<tbody>
+						<tr>
+							<td>${resp.data.data.houseCleaning.totalCleanedArea} m&#178;</td>
+							<td>${resp.data.data.houseCleaning.averageCleanedArea} m&#178;</td>
+						</tr>
+					</tbody>
+				</table>
+                <table>
+					<col width="50%">
+					<col width="50%">
+					<thead>
+						<th>Total Cleaning Time</th>
+						<th>Average Cleaning Time</th>
+					</thead>
+					<tbody>
+						<tr>
+							<td>${convertSecondsToTime(resp.data.data.houseCleaning.totalCleaningTime)} hours</td>
+							<td>${convertSecondsToTime(resp.data.data.houseCleaning.averageCleaningTime)} hours</td>
+						</tr>
+					</tbody>
+				</table>
+				"""
+        } else if (state.firmware.startsWith("2")) {
+        	hData = """
+            	<h4 style="font-size: 18px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Update Firmware</h4>
+            	<div class="centerText" style="font-family: helvetica, arial, sans-serif;">
+				  <p>Cleaning maps only supported on Neato Botvac Connected models with firmware v2.2.0 or later.</p>
+				  <p>If you have Neato Botvac Connected, ensure you update firmware to v2.2.0 or later.</p>
+				</div>
+            """
         } else {
         	hData = """
+            	<h4 style="font-size: 18px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Neato Botvac D3 Connected</h4>
             	<div class="centerText" style="font-family: helvetica, arial, sans-serif;">
-				  <p>Cleaning map not supported on Botvac D3 or Botvac D5.</p>
-				  <p>If you have Neato Botvac Connected, ensure you update firmware to v2.2.0.</p>
+                  <p>Cleaning map and statistics not supported on Botvac D3 Connected.</p>
 				</div>
             """
         }
@@ -703,6 +791,16 @@ def getCleaningTime(start_at, end_at) {
 	def diff = end_at.getTime() - start_at.getTime()
 	def hour = (diff / 3600000) as Integer
     def minute = (diff - (hour * 3600000)) / 60000 as Integer
+    
+    def hourString = (hour < 10) ? "0$hour" : "$hour"
+    def minuteString = (minute < 10) ? "0$minute" : "$minute"
+    
+	return "${hourString}:${minuteString}"
+}
+
+def convertSecondsToTime(seconds) {
+	def hour = (seconds / 3600) as Integer
+    def minute = (seconds - (hour * 3600)) / 60 as Integer
     
     def hourString = (hour < 10) ? "0$hour" : "$hour"
     def minuteString = (minute < 10) ? "0$minute" : "$minute"
