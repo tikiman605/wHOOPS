@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *  17-01-2017: 1.1.7b - Clean up display and formatting for multiple Botvacs.
  *  12-01-2017: 1.1.7 - Add authentication scope for Maps. Added reauthentication option.
  *
  *  26-11-2016: 1.1.6 - Enforce SHM mode if SHM is changed during a clean.
@@ -114,7 +115,7 @@ def authPage() {
         dynamicPage(name: "auth", uninstall: false, install: false) {
         	section { headerSECTION() }
 			section ("Choose your Neato Botvacs:") {
-				href("selectDevicePAGE", title: null, description: devicesSelected() ? "Devices:\n " + getDevicesSelectedString() : "Tap to select your Neato Botvacs", state: devicesSelected())
+				href("selectDevicePAGE", title: null, description: devicesSelected() ? "Devices:" + getDevicesSelectedString() : "Tap to select your Neato Botvacs", state: devicesSelected())
         	}
             if (devicesSelected() == "complete") {
            		section ("SmartSchedule Configuration:") {
@@ -128,21 +129,20 @@ def authPage() {
         		}
                
         		def botvacList = ""
-    			selectedBotvacs.each() {
-            		def childDevice = getChildDevice("${it}")
-					try {
-						botvacList += "${childDevice.displayName} is ${childDevice.currentStatus}. Battery is ${childDevice.currentBattery}%\n"
+                if (selectedBotvacs.size() > 0) {
+                	section("Botvac Status:") {
+                    	selectedBotvacs.each() {
+            				def childDevice = getChildDevice("${it}")
+							try {
+                            	paragraph image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_botvac_image.png", "${childDevice.displayName} is ${childDevice.currentStatus}. Battery is ${childDevice.currentBattery}%"
+							}
+        					catch (e) {
+           						log.trace "Error checking status."
+            					log.trace e
+        					}
+                		}
 					}
-        			catch (e) {
-           				log.trace "Error checking status."
-            			log.trace e
-        			}
-					if (botvacList) {
-						section("Botvac Status:") {
-							paragraph image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_botvac_image.png", botvacList.trim()
-						}
-					}  
-        		}
+                }
            	}
             section() {
 				paragraph "Tap below to reauthenticate to the Neato service and reauthorize SmartThings access."
@@ -650,15 +650,8 @@ def getDevicesSelectedString() {
     }
 	def listString = ""
 	selectedBotvacs.each { childDevice -> 
-    	if (listString == "") {
-        	if (null != state.botvacDevices) {
-        		listString += "• " + state.botvacDevices[childDevice]
-            }
-        }
-        else {
-        	if (null != state.botvacDevices) {
-        		listString += "\n• " + state.botvacDevices[childDevice]
-            }
+        if (null != state.botvacDevices) {
+        	listString += "\n• " + state.botvacDevices[childDevice]
         }
     }
     return listString
@@ -1228,7 +1221,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.1.7\nDate: 12012017(1130)"
+    def text = "Neato (Connect)\nVersion: 1.1.7b\nDate: 17012017(0030)"
 }
 
 private def textCopyright() {
