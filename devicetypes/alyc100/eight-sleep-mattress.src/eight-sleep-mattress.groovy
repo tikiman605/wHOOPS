@@ -167,7 +167,7 @@ metadata {
 			]
 		}
         
-        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
+        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 5, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
         htmlTile(name:"sleepScoreHTML", action: "getSleepScoreHTML", width: 2, height: 2, whiteList: ["fonts.gstatic.com", "fonts.googleapis.com", "www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
