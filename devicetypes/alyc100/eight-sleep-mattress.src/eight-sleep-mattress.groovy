@@ -167,7 +167,7 @@ metadata {
 			]
 		}
         
-        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 5, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
+        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
         htmlTile(name:"sleepScoreHTML", action: "getSleepScoreHTML", width: 2, height: 2, whiteList: ["fonts.gstatic.com", "fonts.googleapis.com", "www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
@@ -642,7 +642,7 @@ def getImageChartHTML() {
             def topValue = a > b ? a : b
 			hData = """
 	  <h4 style="font-size: 16px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Historical Data</h4><br>
-      <div id="main_graph" style="width: 100%; height: 260px;">
+      <div id="main_graph" style="width: 100%">
       	<img src="http://chart.googleapis.com/chart?cht=bvg&chs=368x200&chxt=x,y,y,r,r&chco=5c628f,00e2b1&chd=t2:${state.chartData.getAt(6)},${state.chartData.getAt(5)},${state.chartData.getAt(4)},${state.chartData.getAt(3)},${state.chartData.getAt(2)},${state.chartData.getAt(1)},${state.chartData.getAt(0)}|${state.chartData2.getAt(6)},${state.chartData2.getAt(5)},${state.chartData2.getAt(4)},${state.chartData2.getAt(3)},${state.chartData2.getAt(2)},${state.chartData2.getAt(1)},${state.chartData2.getAt(0)}|${state.chartData3.getAt(6)},${state.chartData3.getAt(5)},${state.chartData3.getAt(4)},${state.chartData3.getAt(3)},${state.chartData3.getAt(2)},${state.chartData3.getAt(1)},${state.chartData3.getAt(0)}&chds=0,${topValue+2},0,${topValue+2},0,100&chxl=0:|${(date - 6).format("d MMM")}|${(date - 5).format("d MMM")}|${(date - 4).format("d MMM")}|${(date - 3).format("d MMM")}|${(date - 2).format("d MMM")}|${(date - 1).format("d MMM")}|${date.format("d MMM")}|2:|Hrs|4:|Score&chxp=2,50|4,50&chxr=1,0,${topValue+2},2|3,0,100,20&chbh=a,0,5&chm=D,cc0099,2,,3&chdl=Sleep|Presence|Sleep%20Score&chco=5c628f,00e2b1,cc0099&chdlp=t">
       </div>
 			"""
