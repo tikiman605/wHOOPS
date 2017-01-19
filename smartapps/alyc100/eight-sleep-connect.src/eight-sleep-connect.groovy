@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY 
+ *	19.01.2017: 1.0 BETA Release 6 - Added notification framework with option screen.
  *	12.01.2017: 1.0 BETA Release 5 - Stop partner credentials being mandatory. Change device creation based on whether partner credentials are present.
  *	12.01.2017: 1.0 BETA Release 4 - Enable changing of SmartApp name.
  *	12.01.2017: 1.0 BETA Release 3b - Remove single instance lock for users with multiple mattresses.
@@ -35,6 +36,7 @@ preferences {
     page(name: "loginPAGE")
     page(name: "partnerLoginPAGE")
     page(name: "selectDevicePAGE")
+    page(name: "notificationsPAGE")
 }
 
 def apiURL(path = '/') 			 { return "https://client-api.8slp.net/v1${path}" }
@@ -59,9 +61,11 @@ def firstPage() {
             	section ("Add your partner's credentials (optional):") {
 					href("partnerLoginPAGE", title: null, description: partnerAuthenticated() ? "Authenticated as " + partnerUsername : "Tap to enter Eight Sleep partner account crednentials", state: partnerAuthenticated())
         		}
-            
-                section ("Choose your Eight Sleep devices:") {
+            	section ("Choose your Eight Sleep devices:") {
 					href("selectDevicePAGE", title: null, description: devicesSelected() ? getDevicesSelectedString() : "Tap to select Eight Sleep devices", state: devicesSelected())
+        		}
+                section ("Notifications:") {
+					href("notificationsPAGE", title: null, description: notificationsSelected() ? getNotificationsString() : "Tap to configure notifications", state: notificationsSelected())
         		}
                 section () {
                 	label name: "name", title: "Assign a Name", required: true, state: (name ? "complete" : null), defaultValue: app.name
@@ -155,6 +159,25 @@ def selectDevicePAGE() {
   }
 }
 
+def notificationsPAGE() {
+	dynamicPage(name: "notificationsPAGE", title: "Preferences", uninstall: false, install: false) {
+    	section {
+        	input("recipients", "contact", title: "Send notifications to", required: false, submitOnChange: true) {
+				input "sendPush", "bool", title: "Send notifications via Push?", required: false, defaultValue: false, submitOnChange: true
+            }
+            input "sendSMS", "phone", title: "Send notifications via SMS?", required: false, defaultValue: null, submitOnChange: true
+            if ((location.contactBookEnabled && settings.recipients) || settings.sendPush || settings.sendSMS != null) {
+				input "onNotification", "bool", title: "Notify when Eight Sleep heat is on ", required: false, defaultValue: false
+				input "offNotification", "bool", title: "Notify when Eight Sleep heat is off ", required: false, defaultValue: false
+				input "inBedNotification", "bool", title: "Notify when 'In Bed' event occurs", required: false, defaultValue: false
+            	input "outOfBedNotification", "bool", title: "Notify when 'Out Of Bed' event occurs", required: false, defaultValue: false
+            	input "heatLevelReachedNotification", "bool", title: "Notify when desired heat level reached", required: false, defaultValue: false
+            	input "sleepScoreNotification", "bool", title: "Notify when latest sleep score is updated", required: false, defaultValue: false
+            }			
+		}        
+    }
+}
+
 def headerSECTION() {
 	return paragraph (image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/8slp-icon.png",
                   "${textVersion()}")
@@ -192,6 +215,39 @@ def getDevicesSelectedString() {
   	return listString
 }
 
+def notificationsSelected() {
+    return ((location.contactBookEnabled && settings.recipients) || settings.sendPush || settings.sendSMS != null) && (settings.onNotification || settings.offNotification || settings.inBedNotification || settings.outOfBedNotification || settings.heatLevelReachedNotification || settings.sleepScoreNotification) ? "complete" : null
+}
+
+def getNotificationsString() {
+	def listString = ""
+    if (location.contactBookEnabled && settings.recipients) { 
+    	listString += "Send the following notifications to " + settings.recipients
+    }
+    else if (settings.sendPush) {
+    	listString += "Send the following notifications"
+    }
+    
+    if (!settings.recipients && !settings.sendPush && settings.sendSMS != null) {
+    	listString += "Send the following SMS to ${settings.sendSMS}"
+    }
+    else if (settings.sendSMS != null) {
+    	listString += " and SMS to ${settings.sendSMS}"
+    }
+    
+    if ((location.contactBookEnabled && settings.recipients) || settings.sendPush || settings.sendSMS != null) {
+    	listString += ":\n"
+        if (settings.onNotification) listString += "• Eight Sleep On\n"
+        if (settings.offNotification) listString += "• Eight Sleep Off\n"
+  		if (settings.inBedNotification) listString += "• In Bed\n"
+  		if (settings.outOfBedNotification) listString += "• Out Of Bed\n"
+  		if (settings.heatLevelReachedNotification) listString += "• Desired Heat Level Reached\n"
+  		if (settings.sleepScoreNotification) listString += "• Sleep Score\n"
+    }
+    if (listString != "") listString = listString.substring(0, listString.length() - 1)
+    return listString
+}
+
 // App lifecycle hooks
 
 def installed() {
@@ -223,6 +279,48 @@ private removeChildDevices(devices) {
 	}
 }
 
+// Implement event handlers
+def eventHandler(evt) {
+	log.debug "Executing 'eventHandler' for ${evt.displayName}"
+	def msg
+    if (evt.value == "open") {
+    	msg = "${evt.displayName} is out of bed."
+		if (settings.outOfBedNotification) {
+			messageHandler(msg, false)
+		}
+    }
+	else if (evt.value == "closed") {
+    	msg = "${evt.displayName} is in bed."
+		if (settings.inBedNotification) {
+			messageHandler(msg, false)
+		}
+    }
+	else if (evt.value == "on") {
+     	msg = "${evt.displayName} is on."
+		if (settings.onNotification) {
+			messageHandler(msg, false)
+		}
+    }
+	else if (evt.value == "off") {
+     	msg = "${evt.displayName} is off."
+		if (settings.offNotification) {
+			messageHandler(msg, false)
+		}
+	}
+    else if (evt.value == "true") {
+     	msg = "${evt.displayName} has reached desired temperature."
+		if (settings.heatLevelReachedNotification) {
+			messageHandler(msg, false)
+		}
+	}
+    else if (evt.name == "battery") {
+     	msg = "${evt.displayName} sleep score is ${evt.value}."
+		if (settings.sleepScoreNotification) {
+			messageHandler(msg, false)
+		}
+    }
+}
+
 // called after Done is hit after selecting a Location
 def initialize() {
 	log.debug "initialize"
@@ -231,7 +329,13 @@ def initialize() {
 	}
     
     def devices = getChildDevices()
-	devices.each {
+	devices.each {		
+   		if (notificationsSelected() == "complete") {
+        	subscribe(it, "switch", eventHandler, [filterEvents: false])
+        	subscribe(it, "contact", eventHandler, [filterEvents: false])
+            subscribe(it, "desiredHeatLevelReached", eventHandler, [filterEvents: false])
+            subscribe(it, "battery", eventHandler, [filterEvents: false])
+        }
     	log.debug "Refreshing device $it.name"
         it.refresh()
 	}
@@ -518,8 +622,20 @@ def logErrors(options = [errorReturn: null, logObject: log], Closure c) {
 	}
 }
 
+def messageHandler(msg, forceFlag) {
+	log.debug "Executing 'messageHandler for $msg. Forcing is $forceFlag'"
+	if (settings.sendSMS != null && !forceFlag) {
+		sendSms(settings.sendSMS, msg) 
+	}
+    if (location.contactBookEnabled && settings.recipients) {
+    	sendNotificationToContacts(msg, settings.recipients)
+    } else if (settings.sendPush || forceFlag) {
+		sendPush(msg)
+	}
+}
+
 private def textVersion() {
-    def text = "Eight Sleep (Connect)\nVersion: 1.0 BETA Release 5\nDate: 13012017(1830)"
+    def text = "Eight Sleep (Connect)\nVersion: 1.0 BETA Release 6\nDate: 19012017(1000)"
 }
 
 private def textCopyright() {
