@@ -13,6 +13,10 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	19.01.2017: 1.0 BETA Release 8 	- Sleep score stored as 'battery' capability for rule building. 
+ * 									- Sleep score notifications via Eight Sleep (Connect) app. 
+ *									- Tweaks to 8slp bed event frequency. 
+ *									- Tile display changes.
  *	17.01.2017: 1.0 BETA Release 7f - Bug fix. Out of Bed detection.
  *	17.01.2017: 1.0 BETA Release 7e - Bug fix. Mark device as Connected after offline event has finished. More tweaks to bed presence logic.
  *  15.01.2017: 1.0 BETA Release 7d - Further tweaks to bed presence logic. Fix to chart when missing sleep data.
@@ -47,6 +51,7 @@ metadata {
 		capability "Sensor"
 		capability "Switch"
 		capability "Switch Level"
+        capability "Battery"
         
         command "setHeatDuration"
         command "heatingDurationDown"
@@ -86,6 +91,7 @@ metadata {
         standardTile("switch_mini", "device.switch", width: 2, height: 2) {
         	state( "on", label:'${name}', action:"switch.off", icon:"st.Bedroom.bedroom12", backgroundColor:"#79b821")
             state( "off", label:'${name}', action:"switch.on", icon:"st.Bedroom.bedroom12", backgroundColor:"#ffffff")
+            state( "offline", label:'${name}', icon:"st.Bedroom.bedroom12", backgroundColor:"#ff0000")
         }
         
         valueTile("currentHeatLevel", "device.currentHeatLevel", width: 2, height: 2){
@@ -148,16 +154,31 @@ metadata {
 			state "heatingDurationDown", label:'  ', action:"heatingDurationDown", icon:"st.thermostat.thermostat-down", backgroundColor:"#ffffff"
 		}
         
+        valueTile("battery", "device.battery", decoration: "flat", inactiveLabel: false, width: 2, height: 2) {
+			state "battery", label:'${currentValue}', unit:"",
+            backgroundColors:[
+				[value: 0, color: "#dddddd"],
+				[value: 1, color: "#fd5e53"],
+                [value: 65, color: "#fd5e53"],
+				[value: 66, color: "#d1e231"],
+                [value: 82, color: "#d1e231"],
+				[value: 83, color: "#00e2b1"],
+				[value: 100, color: "#00e2b1"]
+			]
+		}
+        
         htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
+        htmlTile(name:"sleepScoreHTML", action: "getSleepScoreHTML", width: 2, height: 2, whiteList: ["fonts.gstatic.com", "fonts.googleapis.com", "www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
-    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "presence", "currentHeatLevel", "refresh", "chartHTML", "network", "status", "version"])
+    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "currentHeatLevel", "presence", "sleepScoreHTML", "chartHTML", "network", "status", "version","refresh"])
        
 	}
 }
 
 mappings {
     path("/getImageChartHTML") {action: [GET: "getImageChartHTML"]}
+    path("/getSleepScoreHTML") {action: [GET: "getSleepScoreHTML"]}
 }
 
 // parse events into attributes
@@ -227,6 +248,7 @@ def poll() {
 	if (getTimeZone()) { df.setTimeZone(location.timeZone) }
     sendEvent(name: "status", value: "Last update:\n" + df.format(Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", resp.data.result.lastHeard)), displayed: false )
     sendEvent(name: "version", value: textVersion(), displayed: false)
+    
     //BED PRESENCE LOGIC
     log.debug "Last 5 heat readings: $state.heatLevelHistory"
     def contactState = device.currentState("contact").getValue()
@@ -234,13 +256,16 @@ def poll() {
     def heatDelta
     if (currSwitchState == "on") {
     	heatDelta = currentHeatLevel - state.desiredLevel
+        if (heatDelta >= 0) {
+        	sendEvent(name: "desiredHeatLevelReached", value: "true", displayed: false, descriptionText: "Desired heat level has been reached.") 
+        }
     } else {
         heatDelta = currentHeatLevel - 10
+        sendEvent(name: "desiredHeatLevelReached", value: "false", displayed: false) 
     }
     
-    //If presence start value has changed then assume something is going on.
     if (state.lastPresenceStartValue) {
-    	 if (presenceStart != state.lastPresenceStartValue) {
+    	 if ((presenceStart != state.lastPresenceStartValue) && (!state.analyzeSleep)) {
          	if((contactState == "open") && (!state.analyzeSleep)) {
             	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
             	//Set recorded heat level on sleep
@@ -253,7 +278,7 @@ def poll() {
     
     //If 8slp flags bed left event, start wake up analysis process in 7 minutes time.
     if (state.lastPresenceEndValue) {
-    	if (presenceEnd != state.lastPresenceEndValue) {
+    	if ((presenceEnd != state.lastPresenceEndValue) && (!state.analyzeWakeUp)) {
         	if ((contactState == "closed") && (!state.analyzeWakeUp)) {
             	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
         		//Set recorded heat level on wake up event.
@@ -285,12 +310,19 @@ def poll() {
     	if (state.lastCurrentHeatLevel) {
         	//Check for substantial bed heat loss, assume this warm body has left bed.
             if ((state.heatLevelHistory[0] < state.heatLevelHistory[1]) && (state.heatLevelHistory[1] < state.heatLevelHistory[2])) {
-            	if ((contactState == "closed") && ((state.heatLevelOnWakeUp - currentHeatLevel) >= 10)) {
+            	if ((contactState == "closed") && ((state.heatLevelOnWakeUp - currentHeatLevel) >= (currentHeatLevel * 0.15))) {
                 	setOutOfBed()
                 	stopWakeUpAnalysis()
                 	unschedule('stopWakeUpAnalysis')
                 }
             }
+        }
+        
+        //If bed is this cool, then someone must have left
+        if ((currSwitchState == "off") && (currentHeatLevel <= 15)) {
+        	setOutOfBed()
+           	stopWakeUpAnalysis()
+           	unschedule('stopWakeUpAnalysis')
         }
     } else {
     	//Fast heat loss or current heat level matches desired heat level, assume nobody is present
@@ -305,9 +337,7 @@ def poll() {
     state.lastDesiredLevel = state.desiredLevel
     state.lastPresenceStartValue = presenceStart
     state.lastPresenceEndValue = presenceEnd
-    
     addHistoricalSleepToChartData()
-    
 }
 
 def installed() {
@@ -321,11 +351,13 @@ def refresh() {
 
 def setInBed() {
 	sendEvent(name: "contact", value: "closed", descriptionText: "Is In Bed", displayed: true)
+    unschedule('getLatestSleepScore')
 }
 
 def setOutOfBed() {
 	sendEvent(name: "contact", value: "open", descriptionText: "Is Out Of Bed", displayed: true)
     state.desiredLevelChange = false
+    runIn(1800, getLatestSleepScore)
 }
 
 // Start wake up analysis logic over the next 37 minutes
@@ -541,6 +573,25 @@ def getHistoricalSleepData(fromDate, toDate) {
     result
 }
 
+def getLatestSleepScore() {
+ 	def sleepScore = 0
+	log.debug "Executing 'getLatestSleepScore'"
+	def date = new Date()
+	def resp = getHistoricalSleepData((date - 1), date)
+    if (resp == "" || resp.status == 403) {
+    	log.error("Cannot access sleep data for partner.")
+    } else if (resp.status != 200) {
+    	log.error("Unexpected result in addHistoricalSleepToChartData(): [${resp.status}] ${resp.data}")
+	}
+    else {
+    	def days = resp.data.days
+        if (days.size() > 0) {
+        	sleepScore = days[days.size()-1].score as Integer
+        }
+    }
+    sendEvent(name: 'battery', value: sleepScore, displayed: true, descriptionText: "Your sleep score is ${sleepScore}.")
+}
+
 def addHistoricalSleepToChartData() {
     def date = new Date()
 	def resp = getHistoricalSleepData((date - 6), date)
@@ -555,9 +606,8 @@ def addHistoricalSleepToChartData() {
         state.chartData = [0, 0, 0, 0, 0, 0, 0]
         state.chartData2 = [0, 0, 0, 0, 0, 0, 0]
         state.chartData3 = [0, 0, 0, 0, 0, 0, 0]
-        def now = new Date()
         0.upto(days.size() - 1, {
-        	def dayIndex = (now - Date.parse("yyyy-MM-dd", days[it].day))
+        	def dayIndex = (date - Date.parse("yyyy-MM-dd", days[it].day))
         	state.chartData[dayIndex] = days[it].sleepDuration / 3600  
             state.chartData2[dayIndex] = days[it].presenceDuration / 3600
             state.chartData3[dayIndex] = days[it].score
@@ -618,7 +668,53 @@ def getImageChartHTML() {
 		render contentType: "text/html", data: mainHtml, status: 200
 	}
 	catch (ex) {
-		log.error "getChartHTML Exception:", ex
+		log.error "getImageChartHTML Exception:", ex
+	}
+}
+
+def getSleepScoreHTML() {
+	try {
+    	if (device.currentState("battery") == null) { getLatestSleepScore() } 
+	    def sleepScore = device.currentState("battery").getValue() as Integer
+        def backgroundColor = "ddd"
+        if (sleepScore > 0) { backgroundColor = "fd5e53" }
+        if (sleepScore > 66) { backgroundColor = "d1e231" }
+        if (sleepScore > 83) { backgroundColor = "00e2b1" }
+        
+		def mainHtml = """
+		<!DOCTYPE html>
+		<html>
+        	<head>
+				<meta http-equiv="cache-control" content="max-age=0"/>
+				<meta http-equiv="cache-control" content="no-cache"/>
+				<meta http-equiv="expires" content="0"/>
+				<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT"/>
+				<meta http-equiv="pragma" content="no-cache"/>
+				<meta name="viewport" content="width = device-width, user-scalable=no, initial-scale=1.0">
+
+				<link rel="stylesheet prefetch" href="${getCssData()}"/>
+                <link href='https://fonts.googleapis.com/css?family=Lato:400,300' rel='stylesheet' type='text/css'>
+                <style>
+                .sleepScore {
+    				color: #fff;
+    				text-align: center;
+				    font-size: 50px;
+                    position: relative;
+					bottom: 10px;
+				}
+                </style>
+			</head>
+			<body style="font-family: Lato,sans-serif;">
+            <div style="-webkit-border-radius: 63px 63px 65px 63px;-moz-border-radius: 63px 63px 65px 63px;border-radius: 63px 63px 65px 63px;background:#${backgroundColor};-webkit-box-shadow: #B3B3B3 5px 5px 5px;-moz-box-shadow: #B3B3B3 5px 5px 5px; box-shadow: #B3B3B3 5px 5px 5px;">
+            	<div class="sleepScore"><span style="font-size: 16px;">Sleep Score</span><br/>${sleepScore}</div>
+              </div>
+            </body>
+			</html>
+		"""
+		render contentType: "text/html", data: mainHtml, status: 200
+	}
+	catch (ex) {
+		log.error "getSleepScoreHTML Exception:", ex
 	}
 }
 
@@ -682,6 +778,6 @@ def getFileBase64(url, preType, fileType) {
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
 
 private def textVersion() {
-    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 7f\nDate: 17012017(1300)"
+    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8\nDate: 19012017(0930)"
 }
 
