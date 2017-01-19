@@ -711,7 +711,7 @@ def getPreferencesString() {
 }
 
 def notificationsSelected() {
-    return ((location.contactBookEnabled && settings.recipients) || settings.sendPush || settings.sendSMS != null) && (settings.sendBotvacOn || settings.sendBotvacOff || settings.sendBotvacError || settings.sendBotvacBin) ? "complete" : null
+    return ((location.contactBookEnabled && settings.recipients) || settings.sendPush || settings.sendSMS != null) && (settings.sendBotvacOn || settings.sendBotvacOff || settings.sendBotvacError || settings.sendBotvacBin || settings.ssNotification) ? "complete" : null
 }
 
 def getNotificationsString() {
