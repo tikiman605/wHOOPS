@@ -94,7 +94,7 @@ metadata {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
         
-        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
+        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 5, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
         
 		main (["power"])
 		details(["power", "consumptionPrice", "unitPrice", "totalDemand", "totalConsumptionPrice", "yesterdayTotalPower", "yesterdayTotalPowerCost", "chartHTML", "network", "refresh"])

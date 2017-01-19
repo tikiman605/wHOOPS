@@ -146,7 +146,7 @@ metadata {
 			state("offline", label:'${name}', icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/laser-guided-navigation.png", backgroundColor:"#bc2323")
         }
         
-        htmlTile(name:"mapHTML", action: "getMapHTML", width: 6, height: 8, whiteList: ["neatorobotics.s3.amazonaws.com", "raw.githubusercontent.com"])
+        htmlTile(name:"mapHTML", action: "getMapHTML", width: 6, height: 9, whiteList: ["neatorobotics.s3.amazonaws.com", "raw.githubusercontent.com"])
         
 		main("switch")
 		details(["clean","smartScheduleStatusMessage", "forceCleanStatusMessage", "status", "battery", "charging", "bin", "dockStatus", "dockHasBeenSeen", "cleaningMode", "scheduled", "resetSmartSchedule", "network", "refresh", "mapHTML"])
