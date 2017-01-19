@@ -94,7 +94,7 @@ metadata {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
         
-        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 5, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
+        htmlTile(name:"chartHTML", action: "getImageChartHTML", width: 6, height: 4, whiteList: ["www.gstatic.com", "raw.githubusercontent.com"])
         
 		main (["power"])
 		details(["power", "consumptionPrice", "unitPrice", "totalDemand", "totalConsumptionPrice", "yesterdayTotalPower", "yesterdayTotalPowerCost", "chartHTML", "network", "refresh"])
@@ -390,7 +390,7 @@ def getImageChartHTML() {
         def topValue = state.chartData.max()
 		def hData = """
         	<h4 style="font-size: 22px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Historical Costs</h4><br>
-	  		<div id="main_graph" style="width: 100%; height: 260px;"><img src="http://chart.googleapis.com/chart?cht=bvg&chs=350x200&chxt=x,y,y&chco=0a9928|0a9928|0a9928|0a9928|0a9928|0a9928|eda610&chd=t:${state.chartData.getAt(6)},${state.chartData.getAt(5)},${state.chartData.getAt(4)},${state.chartData.getAt(3)},${state.chartData.getAt(2)},${state.chartData.getAt(1)},${state.chartData.getAt(0)}&chds=0,${topValue+1}&chxl=0:|${(date - 6).format("d MMM")}|${(date - 5).format("d MMM")}|${(date - 4).format("d MMM")}|${(date - 3).format("d MMM")}|${(date - 2).format("d MMM")}|${(date - 1).format("d MMM")}|${date.format("d MMM")}|2:|Cost&chxp=2,50&chxr=1,0,${topValue+1}&chbh=a,10,10&chxs=1N*cGBPsz2*"></div>		  
+	  		<div id="main_graph" style="width: 100%;"><img src="http://chart.googleapis.com/chart?cht=bvg&chs=350x200&chxt=x,y,y&chco=0a9928|0a9928|0a9928|0a9928|0a9928|0a9928|eda610&chd=t:${state.chartData.getAt(6)},${state.chartData.getAt(5)},${state.chartData.getAt(4)},${state.chartData.getAt(3)},${state.chartData.getAt(2)},${state.chartData.getAt(1)},${state.chartData.getAt(0)}&chds=0,${topValue+1}&chxl=0:|${(date - 6).format("d MMM")}|${(date - 5).format("d MMM")}|${(date - 4).format("d MMM")}|${(date - 3).format("d MMM")}|${(date - 2).format("d MMM")}|${(date - 1).format("d MMM")}|${date.format("d MMM")}|2:|Cost&chxp=2,50&chxr=1,0,${topValue+1}&chbh=a,10,10&chxs=1N*cGBPsz2*"></div>		  
 			"""
 
 		def mainHtml = """

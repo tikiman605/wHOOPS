@@ -583,7 +583,7 @@ def getMapHTML() {
                 def end_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", resp.data.maps[0].end_at)
 				hData = """
             	<h4 style="font-size: 18px; font-weight: bold; text-align: center; background: #00a1db; color: #f5f5f5;">Cleaning Map ${df.format(generated_at)}</h4>
-	  			<div id="cleaning_map" style="width: 100%; height: 260px;"><img src="${mapUrl}" width="100%">	
+	  			<div id="cleaning_map" style="width: 100%"><img src="${mapUrl}" width="100%">	
                 <table>
 					<col width="50%">
 					<col width="50%">
