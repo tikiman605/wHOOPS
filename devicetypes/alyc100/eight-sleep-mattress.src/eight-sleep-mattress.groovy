@@ -589,7 +589,7 @@ def getLatestSleepScore() {
         	sleepScore = days[days.size()-1].score as Integer
         }
     }
-    sendEvent(name: 'battery', value: sleepScore, displayed: true, descriptionText: "Your sleep score is ${sleepScore}.")
+    sendEvent(name: 'battery', value: sleepScore, displayed: true, isStateChange: true, descriptionText: "Your sleep score is ${sleepScore}.")
 }
 
 def addHistoricalSleepToChartData() {
