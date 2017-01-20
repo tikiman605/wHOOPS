@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	20.01.2017: 1.0 BETA Release 8b - Ensure one sleep score notification per day.
  *	19.01.2017: 1.0 BETA Release 8 	- Sleep score stored as 'battery' capability for rule building. 
  * 									- Sleep score notifications via Eight Sleep (Connect) app. 
  *									- Tweaks to 8slp bed event frequency. 
@@ -589,7 +590,7 @@ def getLatestSleepScore() {
         	sleepScore = days[days.size()-1].score as Integer
         }
     }
-    sendEvent(name: 'battery', value: sleepScore, displayed: true, isStateChange: true, descriptionText: "Your sleep score is ${sleepScore}.")
+    sendEvent(name: 'battery', value: sleepScore, displayed: true, descriptionText: "Your sleep score is ${sleepScore}.")
 }
 
 def addHistoricalSleepToChartData() {
@@ -778,6 +779,6 @@ def getFileBase64(url, preType, fileType) {
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
 
 private def textVersion() {
-    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8\nDate: 19012017(0930)"
+    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8b\nDate: 20012017(0010)"
 }
 
