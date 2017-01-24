@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	24-01-2017: 1.5b - Better error handling for maps.
  * 	17-01-2017: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
  *
  * 	12-01-2017: 1.4b - Time zones!.
@@ -150,7 +151,7 @@ metadata {
         
 		main("switch")
 		details(["clean","smartScheduleStatusMessage", "forceCleanStatusMessage", "status", "battery", "charging", "bin", "dockStatus", "dockHasBeenSeen", "cleaningMode", "scheduled", "resetSmartSchedule", "network", "refresh", "mapHTML"])
-		}
+	}
 }
 
 mappings {
@@ -575,7 +576,21 @@ def getMapHTML() {
         def hData = ""
         if (state.firmware.startsWith("2.2")) {
         	resp = parent.beehiveGET("/users/me/robots/${device.deviceNetworkId.tokenize("|")[0]}/maps")
-        	if (resp.data.maps.size() > 0) {
+            if (resp.status == 403) {
+            	hData = """
+                <div class="centerText" style="font-family: helvetica, arial, sans-serif;">
+				  <p>Neato (Connect) not authorised for Map access.</p>
+				  <p>If you're upgrading from v1.1.6 or earlier to v1.1.7 or later, you need to reauthorize your Neato credentials. Open the Neato(Connect) smart app in the ST mobile app, scroll to the bottom and tap the reauthorize item.</p>
+				</div>
+                """
+            } else if (resp.status != 200) {
+            	hData = """
+                <div class="centerText" style="font-family: helvetica, arial, sans-serif;">
+				  <p>Neato map retrieval failed.</p>
+				  <p>Please try again later.</p>
+				</div>
+                """
+            } else if ((resp.data.maps) && (resp.data.maps.size() > 0)) {
             	def mapUrl = resp.data.maps[0].url
                 def generated_at = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", resp.data.maps[0].generated_at)
                 def cleaned_area = resp.data.maps[0].cleaned_area
