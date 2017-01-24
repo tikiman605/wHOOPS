@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	24-01-2017: 1.5.1 - Sq ft display on maps and stats.
  *	24-01-2017: 1.5b - Better error handling for maps.
  * 	17-01-2017: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
  *
@@ -608,7 +609,7 @@ def getMapHTML() {
 					</thead>
 					<tbody>
 						<tr>
-							<td>${cleaned_area} m&#178;</td>
+							<td>${Math.round(cleaned_area * 100) / 100} m&#178; / ${Math.round(cleaned_area * 1076.39) / 100} ft&#178;</td>
 							<td>${getCleaningTime(start_at, end_at)} hours</td>
 						</tr>
 					</tbody>
@@ -653,7 +654,7 @@ def getMapHTML() {
 					</thead>
 					<tbody>
 						<tr>
-							<td>${cleaned_area} m&#178;</td>
+							<td>${Math.round(cleaned_area * 100) / 100} m&#178; / ${Math.round(cleaned_area * 1076.39) / 100} ft&#178;</td>
 							<td>${getCleaningTime(start_at, end_at)} hours</td>
 						</tr>
 					</tbody>
@@ -682,8 +683,8 @@ def getMapHTML() {
 					</thead>
 					<tbody>
 						<tr>
-							<td>${resp.data.data.houseCleaning.totalCleanedArea} m&#178;</td>
-							<td>${resp.data.data.houseCleaning.averageCleanedArea} m&#178;</td>
+							<td>${Math.round(resp.data.data.houseCleaning.totalCleanedArea * 100) / 100} m&#178; / ${Math.round(resp.data.data.houseCleaning.totalCleanedArea * 1076.39) / 100} ft&#178;</td>
+							<td>${Math.round(resp.data.data.houseCleaning.averageCleanedArea * 100) / 100} m&#178; / ${Math.round(resp.data.data.houseCleaning.averageCleanedArea * 1076.39) / 100} ft&#178;</td>
 						</tr>
 					</tbody>
 				</table>
@@ -805,7 +806,7 @@ def getFileBase64(url, preType, fileType) {
 def getCleaningTime(start_at, end_at) {
 	def diff = end_at.getTime() - start_at.getTime()
 	def hour = (diff / 3600000) as Integer
-    def minute = (diff - (hour * 3600000)) / 60000 as Integer
+    def minute = Math.round((diff - (hour * 3600000)) / 60000) as Integer
     
     def hourString = (hour < 10) ? "0$hour" : "$hour"
     def minuteString = (minute < 10) ? "0$minute" : "$minute"
