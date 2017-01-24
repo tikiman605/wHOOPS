@@ -1,7 +1,7 @@
 /**
  *  Neato Botvac Connected Series
  *
- *  Copyright 2016 Alex Lee Yuk Cheung
+ *  Copyright 2017 Alex Lee Yuk Cheung
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -13,10 +13,10 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
- * 	17-01-2016: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
+ * 	17-01-2017: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
  *
- * 	12-01-2016: 1.4b - Time zones!.
- * 	12-01-2016: 1.4 - Cleaning map view functionality.
+ * 	12-01-2017: 1.4b - Time zones!.
+ * 	12-01-2017: 1.4 - Cleaning map view functionality.
  *
  * 	13-12-2016: 1.3b - Attempt to stop Null Pointer on 1.3b.
  * 	13-12-2016: 1.3 - Added compatability with newer Botvac models with firmware 3.x.
