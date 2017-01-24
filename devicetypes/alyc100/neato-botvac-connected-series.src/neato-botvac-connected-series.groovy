@@ -14,6 +14,7 @@
  *
  *  VERSION HISTORY
  *	24-01-2017: 1.5.1 - Sq ft display on maps and stats.
+ *
  *	24-01-2017: 1.5b - Better error handling for maps.
  * 	17-01-2017: 1.5 - Find Me support and stats reporting for D5. Minor tweaks to stats table formatting.
  *
