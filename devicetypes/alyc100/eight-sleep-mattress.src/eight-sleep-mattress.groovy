@@ -782,6 +782,6 @@ def getFileBase64(url, preType, fileType) {
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
 
 private def textVersion() {
-    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8b\nDate: 20012017(0010)"
+    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8c\nDate: 25012017(1605)"
 }
 
