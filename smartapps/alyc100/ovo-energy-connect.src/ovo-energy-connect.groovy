@@ -1,7 +1,7 @@
 /**
  *  OVO Energy (Connect)
  *
- *  Copyright 2015 Alex Lee Yuk Cheung
+ *  Copyright 2017 Alex Lee Yuk Cheung
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -31,6 +31,9 @@
  *
  *	10.01.2017
  *	v2.2.4b - Stop null pointer on update latest price failiure.
+ *
+ *	25.01.2017
+ *	v2.2.5 - Stop notifications when total power and cost values are TBD from OVO API
  */
 definition(
 		name: "OVO Energy (Connect)",
@@ -89,7 +92,7 @@ def firstPage() {
 
 def headerSECTION() {
 	return paragraph (image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/icon175x175.jpeg",
-                  "OVO Energy (Connect)\nVersion: 2.2.4b\nDate: 10012017(2035)")
+                  "OVO Energy (Connect)\nVersion: 2.2.5\nDate: 25012017(2220)")
 }               
 
 def stateTokenPresent() {
@@ -268,11 +271,11 @@ def initialize() {
 
 def evtHandler(evt) {
 	def msg
-    if (evt.name == "yesterdayTotalPowerCost") {
+    if ((evt.name == "yesterdayTotalPowerCost") && (evt.value != "being calculated...")) {
     	msg = "${evt.displayName} total daily cost was ${evt.value}"
     	if (settings.sendDailyCostSummary) generateNotification(msg)    
     } 
-    else if (evt.name == "yesterdayTotalPower") {
+    else if ((evt.name == "yesterdayTotalPower") && (evt.value != "TBD")) {
     	msg = "${evt.displayName} total daily usage was ${evt.value} ${evt.unit} "
     	if (settings.sendDailyUsageSummary) generateNotification(msg)    
     }
