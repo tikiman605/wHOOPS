@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+  *	25.01.2017: 1.0 BETA Release 8c - Stop Infinite Loop / Divide by Errors.
  *	20.01.2017: 1.0 BETA Release 8b - Ensure one sleep score notification per day.
  *	19.01.2017: 1.0 BETA Release 8 	- Sleep score stored as 'battery' capability for rule building. 
  * 									- Sleep score notifications via Eight Sleep (Connect) app. 
@@ -607,12 +608,14 @@ def addHistoricalSleepToChartData() {
         state.chartData = [0, 0, 0, 0, 0, 0, 0]
         state.chartData2 = [0, 0, 0, 0, 0, 0, 0]
         state.chartData3 = [0, 0, 0, 0, 0, 0, 0]
-        0.upto(days.size() - 1, {
+        if (days.size() > 0) {
+        	0.upto(days.size() - 1, {
         	def dayIndex = (date - Date.parse("yyyy-MM-dd", days[it].day))
         	state.chartData[dayIndex] = days[it].sleepDuration / 3600  
             state.chartData2[dayIndex] = days[it].presenceDuration / 3600
             state.chartData3[dayIndex] = days[it].score
-        })
+        	})
+        }
     }
 }
 
