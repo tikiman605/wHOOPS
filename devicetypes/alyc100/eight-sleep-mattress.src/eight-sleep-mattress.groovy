@@ -13,7 +13,9 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
-  *	25.01.2017: 1.0 BETA Release 8c - Stop Infinite Loop / Divide by Errors.
+ *	26.01.2017: 1.0 - Remove BETA label.
+ *
+ *	25.01.2017: 1.0 BETA Release 8c - Stop Infinite Loop / Divide by Errors.
  *	20.01.2017: 1.0 BETA Release 8b - Ensure one sleep score notification per day.
  *	19.01.2017: 1.0 BETA Release 8 	- Sleep score stored as 'battery' capability for rule building. 
  * 									- Sleep score notifications via Eight Sleep (Connect) app. 
@@ -44,6 +46,10 @@
  *                                 - Many bug fixes
  *	11.01.2017: 1.0 BETA Release 1 - Initial Release
  */
+preferences {
+	input title: "", description: "${textVersion()}\n${textCopyright()}", displayDuringSetup: false, type: "paragraph", element: "paragraph"
+} 
+
 metadata {
 	definition (name: "Eight Sleep Mattress", namespace: "alyc100", author: "Alex Lee Yuk Cheung") {
 		capability "Actuator"
@@ -173,7 +179,7 @@ metadata {
         htmlTile(name:"sleepScoreHTML", action: "getSleepScoreHTML", width: 2, height: 2, whiteList: ["fonts.gstatic.com", "fonts.googleapis.com", "www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
-    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "currentHeatLevel", "presence", "sleepScoreHTML", "chartHTML", "network", "status", "version","refresh"])
+    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "currentHeatLevel", "presence", "sleepScoreHTML", "chartHTML", "network", "status" ,"refresh"])
        
 	}
 }
@@ -252,7 +258,6 @@ def poll() {
     sendEvent(name: "version", value: textVersion(), displayed: false)
     
     //BED PRESENCE LOGIC
-    log.debug "Last 5 heat readings: $state.heatLevelHistory"
     def contactState = device.currentState("contact").getValue()
     def currSwitchState = device.currentState("switch").getValue()
     def heatDelta
@@ -782,6 +787,10 @@ def getFileBase64(url, preType, fileType) {
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
 
 private def textVersion() {
-    def text = "Eight Sleep Mattress\nVersion: 1.0 BETA Release 8c\nDate: 25012017(1605)"
+    def text = "Eight Sleep Mattress\nVersion: 1.0\nDate: 26012017(1130)"
+}
+
+private def textCopyright() {
+    def text = "Copyright © 2017 Alex Lee Yuk Cheung"
 }
 
