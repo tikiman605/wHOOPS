@@ -13,6 +13,8 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY 
+ *	26.01.2017: v1.0 - Remove BETA label.
+ *
  *	19.01.2017: 1.0 BETA Release 6 - Added notification framework with option screen.
  *	12.01.2017: 1.0 BETA Release 5 - Stop partner credentials being mandatory. Change device creation based on whether partner credentials are present.
  *	12.01.2017: 1.0 BETA Release 4 - Enable changing of SmartApp name.
@@ -635,7 +637,7 @@ def messageHandler(msg, forceFlag) {
 }
 
 private def textVersion() {
-    def text = "Eight Sleep (Connect)\nVersion: 1.0 BETA Release 6\nDate: 19012017(1000)"
+    def text = "Eight Sleep (Connect)\nVersion: 1.0\nDate: 26012017(1130)"
 }
 
 private def textCopyright() {
