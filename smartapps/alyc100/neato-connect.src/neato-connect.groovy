@@ -13,9 +13,6 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
- *  25-01-2017: 1.2 BETA Release 1b - Minor fix to SmartSchedule menus.
- *  24-01-2017: 1.2 BETA Release 1 - Individual SmartSchedule for each Botvac. (Loses SmartSchedule from earlier versions).
- *
  *  17-01-2017: 1.1.7b - Clean up display and formatting for multiple Botvacs.
  *  12-01-2017: 1.1.7 - Add authentication scope for Maps. Added reauthentication option.
  *
@@ -68,7 +65,6 @@ preferences {
     page(name: "preferencesPAGE")
     page(name: "notificationsPAGE")
     page(name: "smartSchedulePAGE")
-    page(name: "timeIntervalPAGE")
 }
 
 mappings {
@@ -112,26 +108,19 @@ def authPage() {
    	 	if (location.contactBookEnabled) {
     		settings.sendPush = false
     	}
-        
+        //Migrate settings from v1.1 and earlier to v1.2
+        if (settings.smartScheduleEnabled && settings.ssScheduleTrigger == null) {
+        	settings.ssScheduleTrigger = "mode"
+        }
         dynamicPage(name: "auth", uninstall: false, install: false) {
         	section { headerSECTION() }
-            
 			section ("Choose your Neato Botvacs:") {
 				href("selectDevicePAGE", title: null, description: devicesSelected() ? "Devices:" + getDevicesSelectedString() : "Tap to select your Neato Botvacs", state: devicesSelected())
         	}
             if (devicesSelected() == "complete") {
            		section ("SmartSchedule Configuration:") {
-					if (selectedBotvacs.size() > 0) {
-                		selectedBotvacs.each() {
-                            //Migrate settings from v1.1 and earlier to v1.1.1
-        					if (settings["smartScheduleEnabled#$it"] && settings["ssScheduleTrigger#$it"] == null) {
-        						settings["ssScheduleTrigger#$it"] = "mode"
-        					}
-                            def ssEnabled = smartScheduleSelected(it)
-                            href("smartSchedulePAGE", params: ["botvacId": it], title: "SmartSchedule for ${state.botvacDevices[it]}", description: settings["smartScheduleEnabled#$it"] ? "${getSmartScheduleString(it)}" : "Tap to configure SmartSchedule for ${state.botvacDevices[it]}", state: ssEnabled, required: false, submitOnChange: false)
-        				}
-                	}
-                }
+					href("smartSchedulePAGE", title: null, description: smartScheduleSelected() ? getSmartScheduleString() : "Tap to configure SmartSchedule", state: smartScheduleSelected())
+        		}
             	section ("Preferences:") {
 					href("preferencesPAGE", title: null, description: preferencesSelected() ? getPreferencesString() : "Tap to configure preferences", state: preferencesSelected())
         		}
@@ -140,15 +129,18 @@ def authPage() {
         		}
                
         		def botvacList = ""
-                section("Botvac Status:") {
-                	getChildDevices().each { childDevice -> 
-						try {
-                            paragraph image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_botvac_image.png", "${childDevice.displayName} is ${childDevice.currentStatus}. Battery is ${childDevice.currentBattery}%"
-						}
-        				catch (e) {
-           					log.trace "Error checking status."
-            				log.trace e
-        				}
+                if (selectedBotvacs.size() > 0) {
+                	section("Botvac Status:") {
+                    	selectedBotvacs.each() {
+            				def childDevice = getChildDevice("${it}")
+							try {
+                            	paragraph image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_botvac_image.png", "${childDevice.displayName} is ${childDevice.currentStatus}. Battery is ${childDevice.currentBattery}%"
+							}
+        					catch (e) {
+           						log.trace "Error checking status."
+            					log.trace e
+        					}
+                		}
 					}
                 }
            	}
@@ -171,69 +163,59 @@ def selectDevicePAGE() {
     }
 }
 
-def smartSchedulePAGE(params) {
-	log.debug "PARAMS: $params"
-    if (params.containsKey("botvacId")) state.configBotvacId = params?.botvacId
-	def botvacId = state.configBotvacId
-	return dynamicPage(name: "smartSchedulePAGE", title: "SmartSchedule for ${state.botvacDevices[botvacId]}", install: false, uninstall: false) { 
+def smartSchedulePAGE() {
+	return dynamicPage(name: "smartSchedulePAGE", title: "SmartSchedule Configuration", install: false, uninstall: false) { 
     	section() {
-        	paragraph "Configure a dymanic schedule for your Botvac so that it can clean on a regular interval but based on mode, presence sensor or switch triggers."
-        	input "smartScheduleEnabled#$botvacId", "bool", title: "Enable SmartSchedule?", required: false, defaultValue: false, submitOnChange: true
+        	paragraph "Configure a dymanic schedule for your Botvacs so that they can clean on a regular interval but based on mode, presence sensor or switch triggers."
+        	input "smartScheduleEnabled", "bool", title: "Enable SmartSchedule?", required: false, defaultValue: false, submitOnChange: true
         }
-            if (settings["smartScheduleEnabled#$botvacId"]) {
+            if (settings.smartScheduleEnabled) {
             	section("Configure your cleaning interval and schedule triggers:") {
         			//SmartSchedule configuration options.
                 	//Configure regular cleaning interval in days
-                	input ("ssCleaningInterval#$botvacId", "number", title: "Set your ideal cleaning interval in days", required: true, defaultValue: 3)
+                	input ("ssCleaningInterval", "number", title: "Set your ideal cleaning interval in days", required: true, defaultValue: 3)
                     
                     //Define smart schedule trigger
-                    input("ssScheduleTrigger#$botvacId", "enum", title: "How do you want to trigger the schedule?",  multiple: false, required: true, submitOnChange: true, options: ["mode": "Away Modes", "switch": "Switches", "presence": "Presence", "none": "No Triggers"])
+                    input(name: "ssScheduleTrigger", title: "How do you want to trigger the schedule?", description: null, multiple: false, required: true, submitOnChange: true, type: "enum", options: ["mode": "Away Modes", "switch": "Switches", "presence": "Presence", "none": "No Triggers"], defaultValue: "mode")
         
                     //Define your away modes
-                    if (settings["ssScheduleTrigger#$botvacId"] == "mode") { 
-                    	input ("ssAwayModes#$botvacId", "mode", title:"Specify your away modes:", multiple: true, required: true) 
+                    if (ssScheduleTrigger == "mode") { input ("ssAwayModes", "mode", title:"Specify your away modes:", multiple: true, required: true) }
+                    if (ssScheduleTrigger == "switch") { 
+                    	input ("ssSwitchTrigger", "capability.switch", title:"Which switches?", multiple: true, required: true) 
+                        input ("ssSwitchTriggerCondition", "enum", title:"Trigger schedule when:", multiple: false, required: true, options: ["any": "Any switch turns on", "all": "All switches are on"], defaultValue: "any") 
                     }
-                    if (settings["ssScheduleTrigger#$botvacId"] == "switch") { 
-                    	input ("ssSwitchTrigger#$botvacId", "capability.switch", title:"Which switches?", multiple: true, required: true) 
-                        input ("ssSwitchTriggerCondition#$botvacId", "enum", title:"Trigger schedule when:", multiple: false, required: true, options: ["any": "Any switch turns on", "all": "All switches are on"], defaultValue: "any") 
-                    }
-                    if (settings["ssScheduleTrigger#$botvacId"] == "presence") { 
-                    	input ("ssPeopleAway#$botvacId", "capability.presenceSensor", title:"Which presence sensors?", multiple: true, required: true) 
-                        input ("ssPeopleAwayCondition#$botvacId", "enum", title:"Trigger schedule when:", multiple: false, required: true, options: ["any": "Someone leaves", "all": "Everyone is away"], defaultValue: "all") 
+                    if (ssScheduleTrigger == "presence") { 
+                    	input ("ssPeopleAway", "capability.presenceSensor", title:"Which presence sensors?", multiple: true, required: true) 
+                        input ("ssPeopleAwayCondition", "enum", title:"Trigger schedule when:", multiple: false, required: true, options: ["any": "Someone leaves", "all": "Everyone is away"], defaultValue: "all") 
                     }
                 }
                 section("SmartSchedule restrictions:") {
 					//Define time of day
-                	paragraph "Set SmartSchedule restrictions so that your Botvac don't start in the middle of the night."
-                    def greyedOutTime = greyedOutTime(settings["starting#$botvacId"], settings["ending#$botvacId"])
-                    def timeLabel = getTimeLabel(settings["starting#$botvacId"], settings["ending#$botvacId"])
-                	href ("timeIntervalPAGE", params: ["botvacId": botvacId], title: "Operate Botvac only during a certain time", description: timeLabel, state: greyedOutTime, refreshAfterSelection:true)
+                	paragraph "Set SmartSchedule restrictions so that your Botvacs don't start in the middle of the night."
+                	href "timeIntervalInput", title: "Operate Botvacs only during a certain time", description: getTimeLabel(settings.starting, settings.ending), state: greyedOutTime(settings.starting, settings.ending), refreshAfterSelection:true
                 	//Define allowed days of operation
-                	input ("days#$botvacId", "enum", title: "Operate Botvac only on certain days of the week", multiple: true, required: false,
+                	input ("days", "enum", title: "Operate Botvacs only on certain days of the week", multiple: true, required: false,
 		         		options: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])
                 }
                 section("SmartSchedule overrides:") {
                 //Define override switches to restart SmartSchedule countdown
                 paragraph "Routine override switches/buttons will cancel the next scheduled clean and reset the interval countdown when switched on."
-                	input ("ssOverrideSwitch#$botvacId", "capability.switch", title:"Set SmartSchedule override switches", multiple: true, required: false)
-                    input ("ssOverrideSwitchCondition#$botvacId", "enum", title:"Override schedule when:", multiple: false, required: true, options: ["any": "Any switch turns on", "all": "All switches are on"], defaultValue: "any") 
+                	input ("ssOverrideSwitch", "capability.switch", title:"Set SmartSchedule override switches", multiple: true, required: false)
+                    input ("ssOverrideSwitchCondition", "enum", title:"Override schedule when:", multiple: false, required: true, options: ["any": "Any switch turns on", "all": "All switches are on"], defaultValue: "any") 
                 }
                 section("Notifications:") {
                 paragraph "Turn on SmartSchedule notifications. You can configure specific recipients via Notification settings section."
-                	input "ssNotification", "bool", title: "Enable SmartSchedule notifications?", required: false, defaultValue: true
+                input "ssNotification", "bool", title: "Enable SmartSchedule notifications?", required: false, defaultValue: true
               	}  
             }
         }
     
 }
 
-def timeIntervalPAGE(params) {
-	def botvacId = params.botvacId
-	return dynamicPage(name: "timeIntervalPAGE", title: "Only during a certain time", refreshAfterSelection:true) {
-		section {
-			input "starting#$botvacId", "time", title: "Starting", required: false
-			input "ending#$botvacId", "time", title: "Ending", required: false
-		}
+page(name: "timeIntervalInput", title: "Only during a certain time", refreshAfterSelection:true) {
+	section {
+		input "starting", "time", title: "Starting", required: false
+		input "ending", "time", title: "Ending", required: false
 	}
 }
 
@@ -249,13 +231,7 @@ def notificationsPAGE() {
 				input "sendBotvacOff", "bool", title: "Notify when Botvacs are off?", required: false, defaultValue: false
 				input "sendBotvacError", "bool", title: "Notify on Botvacs have an error?", required: false, defaultValue: true
 				input "sendBotvacBin", "bool", title: "Notify when Botvacs have a full bin?", required: false, defaultValue: true
-                def smartScheduleEnabled = false
-                if (selectedBotvacs.size() > 0) {
-                	selectedBotvacs.each() {
-                    	if (settings["smartScheduleEnabled#$it"]) smartScheduleEnabled = true
-            		}
-                }
-                if (smartScheduleEnabled) {
+                if (settings.smartScheduleEnabled) {
             		input "ssNotification", "bool", title: "Enable SmartSchedule notifications?", required: false, defaultValue: true
                 }
             }
@@ -269,14 +245,14 @@ def preferencesPAGE() {
         section("Force Clean"){
         	paragraph "If Botvac has been inactive for a number of days specified, then force a clean."
         	input "forceClean", "bool", title: "Force clean after elapsed time?", required: false, defaultValue: false, submitOnChange: true
-            if (forceClean != false) {
+            if (forceClean) {
         		input ("forceCleanDelay", "number", title: "Number of days before force clean (in days)", required: false, defaultValue: 7)
             }
         }
         section("Auto Dock") {
         	paragraph "When Botvac is paused, automatically send to base after a specified number of seconds."
 			input "autoDock", "bool", title: "Auto dock Botvac after pause?", required: false, defaultValue: true, submitOnChange: true
-            if (autoDock != false) {
+            if (autoDock) {
             	input ("autoDockDelay", "number", title: "Auto dock delay after pause (in seconds)", required: false, defaultValue: 60)
             }
 		}
@@ -502,7 +478,6 @@ def updated() {
 }
 
 def initialize() {
-	unschedule()
     //Initialise variables
     if (state.lastClean == null) {
     	state.lastClean = [:]
@@ -516,31 +491,30 @@ def initialize() {
     if (state.botvacOnTimeMarker == null) {
     	state.botvacOnTimeMarker = [:]
     }
-    state.taskStartTimes = []
     if (selectedBotvacs) addBotvacs()
     
-    getChildDevices().each { childDevice -> 	
-    	def botvacId = childDevice.deviceNetworkId
-    	//subscribe to events for smartSchedule
-    	if (settings["smartScheduleEnabled#$botvacId"]) {
-    		//store last mode selected
-    		if ((!state.lastTriggerMode) || (state.lastTriggerMode instanceof String)) state.lastTriggerMode = [:]
+    //subscribe to events for smartSchedule
+    if (settings.smartScheduleEnabled) {
+    	//store last mode selected
+    	if (!state.lastTriggerMode) state.lastTriggerMode = ""
         
-        	if (settings["ssScheduleTrigger#$botvacId"] == "mode") { subscribe(location, "mode", smartScheduleHandler, [filterEvents: false]) }
-        	else if (settings["ssScheduleTrigger#$botvacId"] == "switch") { subscribe(settings["ssSwitchTrigger#$botvacId"], "switch.on", smartScheduleHandler, [filterEvents: false]) }
-        	else if (settings["ssScheduleTrigger#$botvacId"] == "presence") { subscribe(settings["ssPeopleAway#$botvacId"], "presence", smartScheduleHandler, [filterEvents: false]) }
+        if (settings.ssScheduleTrigger == "mode") { subscribe(location, "mode", smartScheduleHandler, [filterEvents: false]) }
+        else if (settings.ssScheduleTrigger == "switch") { subscribe(settings.ssSwitchTrigger, "switch.on", smartScheduleHandler, [filterEvents: false]) }
+        else if (settings.ssScheduleTrigger == "presence") { subscribe(settings.ssPeopleAway, "presence", smartScheduleHandler, [filterEvents: false]) }
             
-            if (settings["starting#$botvacId"]) {
-                state.taskStartTimes.add(adjustTimeforTimeZone(settings["starting#$botvacId"]))
-            } else {
-            	state.taskStartTimes.add(timeToday("00:01", location.timeZone))
-            }
-        	subscribe(settings["ssOverrideSwitch#$botvacId"], "switch.on", smartScheduleHandler, [filterEvents: false])
-    	}
+        if (settings.starting) {
+        	schedule(adjustTimeforTimeZone(settings.starting), smartScheduleHandler)
+        }
+        else {
+        	schedule("29 0 0 1/1 * ? *", smartScheduleHandler)
+        }
+        subscribe(settings.ssOverrideSwitch, "switch.on", smartScheduleHandler, [filterEvents: false])
+    }
     
-   		if (state.botvacOnTimeMarker[botvacId] == null) state.botvacOnTimeMarker[botvacId] = now()
+    getChildDevices().each { childDevice -> 			
+   		if (state.botvacOnTimeMarker[childDevice.deviceNetworkId] == null) state.botvacOnTimeMarker[childDevice.deviceNetworkId] = now()
         //subscribe to events for notifications if activated
-    	if (settings["smartScheduleEnabled#$botvacId"] || preferencesSelected() == "complete" || notificationsSelected() == "complete") {
+    	if (settings.smartScheduleEnabled || preferencesSelected() == "complete" || notificationsSelected() == "complete") {
         	subscribe(childDevice, "status.cleaning", eventHandler, [filterEvents: false])
         }
         if (preferencesSelected() == "complete" || notificationsSelected() == "complete") {
@@ -554,20 +528,20 @@ def initialize() {
         	if (state.forceCleanNotificationSent[childDevice.deviceNetworkId] == null) state.forceCleanNotificationSent[childDevice.deviceNetworkId] = false
         }
         //subscribe to events for smartSchedule
-    	if (settings["smartScheduleEnabled#$botvacId"]) {
+    	if (settings.smartScheduleEnabled) {
         	//Initialize flags for Smart Schedule
             if (state.smartSchedule[childDevice.deviceNetworkId] == null) state.smartSchedule[childDevice.deviceNetworkId] = false
         	if (state.lastClean[childDevice.deviceNetworkId] == null) state.lastClean[childDevice.deviceNetworkId] = now()
             //Trigger has changed so reset all smart schedule flags
-            if ((state.lastTriggerMode.containsKey(botvacId)) && (state.lastTriggerMode[botvacId] != settings["ssScheduleTrigger#$botvacId"])) {
+            if (state.lastTriggerMode != settings.ssScheduleTrigger) {
             	log.debug "Smart schedule trigger mode has changed. Resetting smart schedule flag."
-            	state.smartSchedule[botvacId] = false
-            	state.lastTriggerMode[botvacId] = settings["ssScheduleTrigger#$botvacId"]
+            	state.smartSchedule[childDevice.deviceNetworkId] = false
+            	state.lastTriggerMode = settings.ssScheduleTrigger
             }
         }
         childDevice.poll()
     }
-    runIn(getNextTimeInSeconds(), smartScheduleHandler)
+    unschedule()
     runEvery5Minutes('pollOn') // Asynchronously refresh devices so we don't block
 }
 
@@ -683,39 +657,39 @@ def getDevicesSelectedString() {
     return listString
 }
 
-def smartScheduleSelected(botvacId) {
-	return settings["smartScheduleEnabled#$botvacId"] ? "complete" : null
+def smartScheduleSelected() {
+	return settings.smartScheduleEnabled ? "complete" : null
 }
 
-def getSmartScheduleString(botvacId) {
+def getSmartScheduleString() {
 	def listString = ""
-    if (settings["smartScheduleEnabled#$botvacId"]) {
-    	listString += "SmartSchedule set for every ${settings["ssCleaningInterval#$botvacId"]} days "
-        if (settings["ssScheduleTrigger#$botvacId"] == "mode") {listString += "when mode is ${settings["ssAwayModes#$botvacId"]}."}
-        else if (settings["ssScheduleTrigger#$botvacId"] == "switch") {
-        	if (settings["ssSwitchTriggerCondition#$botvacId"] == "any") {
-            	listString += "when any of ${settings["ssSwitchTrigger#$botvacId"]} turns on."
+    if (settings.smartScheduleEnabled) {
+    	listString += "SmartSchedule set for every ${settings.ssCleaningInterval} days "
+        if (settings.ssScheduleTrigger == "mode") {listString += "when mode is ${settings.ssAwayModes}."}
+        else if (settings.ssScheduleTrigger == "switch") {
+        	if (settings.ssSwitchTriggerCondition == "any") {
+            	listString += "when any of ${settings.ssSwitchTrigger} turns on."
             } else {
-            	listString += "when ${settings["ssSwitchTrigger#$botvacId"]} are all on."
+            	listString += "when ${settings.ssSwitchTrigger} are all on."
             }
        	}
         
-        else if (settings["ssScheduleTrigger#$botvacId"] == "presence") {
-        	if (settings["ssPeopleAwayCondition#$botvacId"] == "any") {
-            	listString += "when one of ${settings["ssPeopleAway#$botvacId"]} leaves."
+        else if (settings.ssScheduleTrigger == "presence") {
+        	if (settings.ssPeopleAwayCondition == "any") {
+            	listString += "when one of ${settings.ssPeopleAway} leaves."
             } else {
-            	listString += "when ${settings["ssPeopleAway#$botvacId"]} are all away."
+            	listString += "when ${settings.ssPeopleAway} are all away."
             }
         }  
      
         listString += "\n\nThe following restrictions apply:\n"
-        if (settings["starting#$botvacId"]) listString += "• ${getTimeLabel(settings["starting#$botvacId"], settings["ending#$botvacId"])}\n" 
-        if (settings["days#$botvacId"]) listString += "• Only on ${settings["days#$botvacId"]}.\n"
-        if (settings["ssOverrideSwitch#$botvacId"]) {
-        	if (settings["ssOverrideSwitchCondition#$botvacId"] == "any") {
-            	listString += "• Override schedule if any of ${settings["ssOverrideSwitch#$botvacId"]} turns on."
+        if (settings.starting) listString += "• ${getTimeLabel(settings.starting, settings.ending)}\n" 
+        if (settings.days) listString += "• Only on $settings.days.\n"
+        if (settings.ssOverrideSwitch) {
+        	if (settings.ssOverrideSwitchCondition == "any") {
+            	listString += "• Override schedule if any of ${settings.ssOverrideSwitch} turns on."
             } else {
-        		listString += "• Override schedule if ${settings["ssOverrideSwitch#$botvacId"]} are all on."
+        		listString += "• Override schedule if ${settings.ssOverrideSwitch} are all on."
             }
         }
     }
@@ -879,52 +853,50 @@ def smartScheduleHandler(evt) {
 		log.debug "Executing 'smartScheduleHandler' for ${evt.displayName}"
     } else {
     	log.debug "Executing 'smartScheduleHandler' for scheduled event"
-        //Reschedule next event.
-        runIn(getNextTimeInSeconds(), smartScheduleHandler)
     }
-    getChildDevices().each { childDevice ->
-    	def botvacId = childDevice.deviceNetworkId
-    	//If switch on for override event
-    	if (evt != null && evt.name == "switch") {
-    		def switchInList = false
-    		for (switchName in settings["ssOverrideSwitch#$botvacId"].name) {
-        		if (switchName == evt.device.name) {
-            		switchInList = true
-            		break
-            	}
+    //If switch on for override event
+    if (evt != null && evt.name == "switch") {
+    	def switchInList = false
+    	for (switchName in settings.ssOverrideSwitch.name) {
+        	if (switchName == evt.device.name) {
+            	switchInList = true
+            	break
+            }
+        }
+        log.debug "Swtich found in override switch list: $switchInList"
+    	if (switchInList) {
+    		def executeOverride = true
+        	//If override switch condition is ALL...
+    		if (ssOverrideSwitchCondition == "all") {
+        		//Check all switches in override switch settings are on
+            	for (switchVal in settings.ssOverrideSwitch.currentSwitch) {
+        			if (switchVal == "off") {
+            			executeOverride = false
+            			break
+        			}
+    			}
         	}
-        	log.debug "Swtich found in override switch list: $switchInList"
-    		if (switchInList) {
-    			def executeOverride = true
-        		//If override switch condition is ALL...
-    			if (settings["ssOverrideSwitchCondition#$botvacId"] == "all") {
-        			//Check all switches in override switch settings are on
-            		for (switchVal in settings["ssOverrideSwitch#$botvacId"].currentSwitch) {
-        				if (switchVal == "off") {
-            				executeOverride = false
-            				break
-        				}
-    				}
-        		}
         
-        		if (executeOverride) {
-    				//Reset last clean date to current time
-                	resetSmartScheduleForDevice(botvacId)
+    		//For each vacuum
+        	if (executeOverride) {
+    			getChildDevices().each { childDevice ->
+        			//Reset last clean date to current time
+                	resetSmartScheduleForDevice(childDevice.deviceNetworkId)
                     childDevice.poll()
         		}	
         		if (settings.ssNotification) {
-        			messageHandler("Neato SmartSchedule has reset schedule for ${childDevice.name} as override switch ${evt.displayName} is on.", false)
+        			messageHandler("Neato SmartSchedule has reset all Botvac schedules as override switch ${evt.displayName} is on.", false)
         		}
         	}
         }
-    	//If mode change event, schedule trigger or presence trigger
-    	else {
-    		//Check conditions, time and day have been met and execute clean. If no trigger is specified rely on pollOn method to start clean.
-        	if (settings["ssScheduleTrigger#$botvacId"] != "none") {
-        		startConditionalClean(botvacId)
-        	}
-    	}   	
     }
+    //If mode change event, schedule trigger or presence trigger
+    else {
+    	//Check conditions, time andd day have been met and execute clean. If no trigger is specified rely on pollOn method to start clean.
+        if (settings.ssScheduleTrigger != "none") {
+        	startConditionalClean()
+        }
+    }   	
 }
 
 def scheduleAutoDock() {
@@ -944,54 +916,53 @@ def pollOn() {
     log.debug "Smart schedule states: ${state.smartSchedule}"
     log.debug "Botvac ON time markers: ${state.botvacOnTimeMarker}"
 	getChildDevices().each { childDevice ->
-    	def botvacId = childDevice.deviceNetworkId
     	state.pollState = now()
 		childDevice.poll()
         if (childDevice.currentSwitch == "off") {
         	//Update smart schedule state. Create notification when clean is due.
-        	if (settings["smartScheduleEnabled#$botvacId"] && state.lastClean != null && state.lastClean[botvacId] != null) { 
-        		def t = now() - state.lastClean[botvacId]
-            	log.debug "$childDevice.displayName schedule marker at " + state.lastClean[botvacId] + ". ${t/86400000} days has elapsed since. ${settings["ssCleaningInterval#$botvacId"] - (t/86400000)} days to scheduled clean."
+        	if (settings.smartScheduleEnabled && state.lastClean != null && state.lastClean[childDevice.deviceNetworkId] != null) { 
+        		def t = now() - state.lastClean[childDevice.deviceNetworkId]
+            	log.debug "$childDevice.displayName schedule marker at " + state.lastClean[childDevice.deviceNetworkId] + ". ${t/86400000} days has elapsed since. ${settings.ssCleaningInterval - (t/86400000)} days to scheduled clean."
             
             	//Set SmartSchedule flag if SmartSchedule has not been set already, interval has elapsed and trigger conditions are not met
-            	if ((settings["ssScheduleTrigger#$botvacId"] == "none") && ((settings["ssCleaningInterval#$botvacId"] - (t/86400000)) < 1) && (!state.smartSchedule[botvacId])) {
+            	if ((settings.ssScheduleTrigger == "none") && ((settings.ssCleaningInterval - (t/86400000)) < 1) && (!state.smartSchedule[childDevice.deviceNetworkId])) {
             		//hour calculation for notification of next clean
                 	def hours = "24"
-                	if (settings["starting#$botvacId"]) {
+                	if (settings.starting) {
                 		def currTime = now()
-						def start = timeToday(settings["starting#$botvacId"], location.timeZone).time
+						def start = timeToday(settings.starting, location.timeZone).time
                     	if (start < currTime) start += 86400000
                     	hours = Math.round(new BigDecimal((start - currTime)/3600000)).toString()
                 	}
-                	state.smartSchedule[botvacId] = true
+                	state.smartSchedule[childDevice.deviceNetworkId] = true
                 	if (settings.ssNotification) {
                 		messageHandler("Neato SmartSchedule has scheduled ${childDevice.displayName} for a clean in ${hours} hours (date and time restrictions permitting). Please clear obstacles and leave internal doors open ready for the clean.", false)
                 	}
-            	} else if ((!getTriggerConditionsOk(botvacId)) && (t > (settings["ssCleaningInterval#$botvacId"] * 86400000)) && (!state.smartSchedule[botvacId])) {
-            		state.smartSchedule[botvacId] = true
+            	} else if ((!triggerConditionsOk) && (t > (settings.ssCleaningInterval * 86400000)) && (!state.smartSchedule[childDevice.deviceNetworkId])) {
+            		state.smartSchedule[childDevice.deviceNetworkId] = true
             		if (settings.ssNotification) {
                 		def reason = "you're next away"
-                    	if (settings["ssScheduleTrigger#$botvacId"] == "switch") { reason = "your selected switches turn on" }
-                    	else if (settings["ssScheduleTrigger#$botvacId"] == "presence") { reason = "your selected presence sensors leave"}
+                    	if (settings.ssScheduleTrigger == "switch") { reason = "your selected switches turn on" }
+                    	else if (settings.ssScheduleTrigger == "presence") { reason = "your selected presence sensors leave"}
                 		messageHandler("Neato SmartSchedule has scheduled ${childDevice.displayName} for a clean when " + reason + " (date and time restrictions permitting). Please clear obstacles and leave internal doors open ready for the clean.", false)
                 	}
             	}
                 //If no trigger has been set for smart schedule, execute clean when interval time has elapsed
-        		if ((settings["ssScheduleTrigger#$botvacId"] == "none") && state.smartSchedule[botvacId] && (t > (settings["ssCleaningInterval#$botvacId"] * 86400000))) {
-        			startConditionalClean(botvacId)
+        		if ((settings.ssScheduleTrigger == "none") && state.smartSchedule[childDevice.deviceNetworkId] && (t > (settings.ssCleaningInterval * 86400000))) {
+        			startConditionalClean()
         		}
             }
             //Update force clean state and create notification when clean is due.
-            if (settings.forceClean && state.botvacOnTimeMarker != null && state.botvacOnTimeMarker[botvacId] != null) {
-            	def t = now() - state.botvacOnTimeMarker[botvacId]
-            	log.debug "$childDevice.displayName ON time marker at " + state.botvacOnTimeMarker[botvacId] + ". ${t/86400000} days has elapsed since. ${settings.forceCleanDelay - (t/86400000)} days to force clean."
+            if (settings.forceClean && state.botvacOnTimeMarker != null && state.botvacOnTimeMarker[childDevice.deviceNetworkId] != null) {
+            	def t = now() - state.botvacOnTimeMarker[childDevice.deviceNetworkId]
+            	log.debug "$childDevice.displayName ON time marker at " + state.botvacOnTimeMarker[childDevice.deviceNetworkId] + ". ${t/86400000} days has elapsed since. ${settings.forceCleanDelay - (t/86400000)} days to force clean."
             	
                 //Create 24 hour warning for force clean.
-            	if ((state.forceCleanNotificationSent != null) && (!state.forceCleanNotificationSent[botvacId]) && ((settings.forceCleanDelay - (t/86400000)) < 1)) {
+            	if ((state.forceCleanNotificationSent != null) && (!state.forceCleanNotificationSent[childDevice.deviceNetworkId]) && ((settings.forceCleanDelay - (t/86400000)) < 1)) {
             		//Send notification when force clean is due
             		log.debug "Force clean due within 24 hours"
 					messageHandler(childDevice.displayName + " has not cleaned for " + (settings.forceCleanDelay - 1) + " days. Forcing a clean in 24 hours. Please clear obstacles and leave internal doors open ready for the clean.", true)
-                	state.forceCleanNotificationSent[botvacId] = true
+                	state.forceCleanNotificationSent[childDevice.deviceNetworkId] = true
             	}
             
             	//Execute force clean (no conditions need checking)
@@ -1023,25 +994,25 @@ def pollOn() {
 }
 
 //Access methods for device type
-def isSmartScheduleEnabled(botvacId) {
-	return settings["smartScheduleEnabled#$botvacId"]
+def isSmartScheduleEnabled() {
+	return settings.smartScheduleEnabled
 }
 
-def timeToSmartScheduleClean(botvacId) {
-	log.debug "Executing 'timeToSmartScheduleClean' with device $botvacId"
+def timeToSmartScheduleClean(deviceNetworkId) {
+	log.debug "Executing 'timeToSmartScheduleClean' with device $deviceNetworkId"
 	def result = -1
-    if (settings["smartScheduleEnabled#$botvacId"] && state.lastClean != null && state.lastClean[botvacId] != null) {
-    	result = (state.lastClean[botvacId] + (settings["ssCleaningInterval#$botvacId"] * 86400000)) - now()
+    if (settings.smartScheduleEnabled && state.lastClean != null && state.lastClean[deviceNetworkId] != null) {
+    	result = (state.lastClean[deviceNetworkId] + (settings.ssCleaningInterval * 86400000)) - now()
     }
     log.debug "Time to smart schedule clean: $result milliseconds"
     result
 }
 
-def timeToForceClean(botvacId) {
-	log.debug "Executing 'timeToForceClean' with device $botvacId"
+def timeToForceClean(deviceNetworkId) {
+	log.debug "Executing 'timeToForceClean' with device $deviceNetworkId"
 	def result = -1
-    if (settings.forceClean && state.botvacOnTimeMarker != null && state.botvacOnTimeMarker[botvacId] != null) {
-    	result = (state.botvacOnTimeMarker[botvacId] + (settings.forceCleanDelay * 86400000)) - now()
+    if (settings.forceClean && state.botvacOnTimeMarker != null && state.botvacOnTimeMarker[deviceNetworkId] != null) {
+    	result = (state.botvacOnTimeMarker[deviceNetworkId] + (settings.forceCleanDelay * 86400000)) - now()
     }
     log.debug "Time to force clean: $result milliseconds"
     result
@@ -1057,13 +1028,13 @@ def autoDockDelayValue() {
     result
 }
 
-def resetSmartScheduleForDevice(botvacId) {
-	log.debug "Executing 'resetSmartScheduleForDevice' with device $botvacId"
-	if (settings["smartScheduleEnabled#$botvacId"] && state.lastClean != null && state.smartSchedule != null) {
+def resetSmartScheduleForDevice(deviceNetworkId) {
+	log.debug "Executing 'resetSmartScheduleForDevice' with device $deviceNetworkId"
+	if (settings.smartScheduleEnabled && state.lastClean != null && state.smartSchedule != null) {
 		//Reset last clean date to current time
-   		state.lastClean[botvacId] = now()
+   		state.lastClean[deviceNetworkId] = now()
    		//Remove existing SmartSchedule flag
-    	state.smartSchedule[botvacId] = false
+    	state.smartSchedule[deviceNetworkId] = false
     }
     /*
     //DEBUG PURPOSES ONLY. FAKE TIME ON OVERRIDE SWITCH AND INCREASE POLL
@@ -1101,17 +1072,19 @@ def setSHMToAway() {
 	}
 }
 
-def startConditionalClean(botvacId) {
-	log.debug "Executing 'startConditionalClean for $botvacId'"
-	if (getAllOk(botvacId)) {
-    	def botvacDevice = getChildDevice(botvacId)
-    	//If smartSchedule flag has been set, start clean.
-         if (state.smartSchedule[botvacId]) {
-         	if (settings.ssNotification) {
-                messageHandler("Neato SmartSchedule has started ${botvacDevice.displayName} cleaning.", false)
+def startConditionalClean() {
+	log.debug "Executing 'startConditionalClean'"
+	if (allOk) {
+    	//For each vacuum
+        getChildDevices().each { childDevice ->
+        	//If smartSchedule flag has been set, start clean.
+            if (state.smartSchedule[childDevice.deviceNetworkId]) {
+            	if (settings.ssNotification) {
+                	messageHandler("Neato SmartSchedule has started ${childDevice.displayName} cleaning.", false)
+                }
+                childDevice.on()
             }
-            botvacDevice.on()
-         }   	
+       	}      	
      }
 }
 
@@ -1127,21 +1100,6 @@ def adjustTimeforTimeZone(originalTime) {
     return originalTime
 }
 
-def getNextTimeInSeconds() {
-	def nextTime = null
-    for (time in state.taskStartTimes) {
-    	def t = timeTodayAfter(new Date(), time.format("HH:mm", location.timeZone), location.timeZone)
-		if (nextTime) {
-        	nextTime = (nextTime > t.getTime()) ? t.getTime() : nextTime
-        } else {
-        	nextTime = t.getTime()
-        }
-	}
-    def seconds = Math.ceil((nextTime - now()) / 1000)
-	log.debug "Scheduling ST job to run in ${seconds}s, at ${nextTime}"
-	return seconds as Integer
-}
-
 def messageHandler(msg, forceFlag) {
 	log.debug "Executing 'messageHandler for $msg. Forcing is $forceFlag'"
 	if (settings.sendSMS != null && !forceFlag) {
@@ -1154,32 +1112,32 @@ def messageHandler(msg, forceFlag) {
 	}
 }
 
-private getAllOk(botvacId) {
-	getTriggerConditionsOk(botvacId) && getDaysOk(botvacId) && getTimeOk(botvacId)
+private getAllOk() {
+	triggerConditionsOk && daysOk && timeOk
 }
 
-private getTriggerConditionsOk(botvacId) {
+private getTriggerConditionsOk() {
 	//Calculate, depending on smart schedule trigger mode, whether conditions currently match
     def result = true
     
-    if (settings["ssScheduleTrigger#$botvacId"] == "mode") {
-    	result = location.mode in settings["ssAwayModes#$botvacId"] 
-    } else if (settings["ssScheduleTrigger#$botvacId"] == "switch") {
-    	if (settings["ssSwitchTriggerCondition#$botvacId"] == "any") {
-        	result = "on" in settings["ssSwitchTrigger#$botvacId"].currentSwitch
+    if (settings.ssScheduleTrigger == "mode") {
+    	result = location.mode in settings.ssAwayModes 
+    } else if (settings.ssScheduleTrigger == "switch") {
+    	if (settings.ssSwitchTriggerCondition == "any") {
+        	result = "on" in settings.ssSwitchTrigger.currentSwitch
         } else {
-        	for (switchVal in settings["ssSwitchTrigger#$botvacId"].currentSwitch) {
+        	for (switchVal in settings.ssSwitchTrigger.currentSwitch) {
         		if (switchVal == "off") {
             		result = false
             		break
         		}
     		}
         }
-    } else if (settings["ssScheduleTrigger#$botvacId"] == "presence") {
-    	if (settings["ssPeopleAwayCondition#$botvacId"] == "any") {
-        	result = "not present" in settings["ssPeopleAway#$botvacId"].currentPresence
+    } else if (settings.ssScheduleTrigger == "presence") {
+    	if (settings.ssPeopleAwayCondition == "any") {
+        	result = "not present" in settings.ssPeopleAway.currentPresence
         } else {
-        	for (person in settings["ssPeopleAway#$botvacId"]) {
+        	for (person in settings.ssPeopleAway) {
         		if (person.currentPresence == "present") {
             		result = false
             		break
@@ -1188,31 +1146,31 @@ private getTriggerConditionsOk(botvacId) {
         }
     } 
     
-    log.trace "triggerConditionsOk for $botvacId = $result"
+    log.trace "triggerConditionsOk = $result"
     result
 }
 
-private getDaysOk(botvacId) {
+private getDaysOk() {
 	def result = true
-	if (settings["days#$botvacId"]) {
+	if (settings.days) {
 		def df = new java.text.SimpleDateFormat("EEEE")
 		if (getTimeZone()) { df.setTimeZone(location.timeZone) }
 		def day = df.format(new Date())
-		result = settings["days#$botvacId"].contains(day)
+		result = settings.days.contains(day)
 	}
-	log.trace "daysOk for $botvacId = $result"
+	log.trace "daysOk = $result"
 	result
 }
 
-private getTimeOk(botvacId) {
+private getTimeOk() {
 	def result = true
-	if (settings["starting#$botvacId"] && settings["ending#$botvacId"]) {
+	if (settings.starting && settings.ending) {
 		def currTime = now()
-		def start = timeToday(settings["starting#$botvacId"], location.timeZone).time
-		def stop = timeToday(settings["ending#$botvacId"], location.timeZone).time
+		def start = timeToday(settings.starting, location.timeZone).time
+		def stop = timeToday(settings.ending, location.timeZone).time
 		result = start < stop ? currTime >= start && currTime <= stop : currTime <= stop || currTime >= start
 	}
-	log.trace "timeOk for $botvacId = $result"
+	log.trace "timeOk = $result"
 	result
 }
 
@@ -1224,6 +1182,7 @@ private hhmm(time, fmt = "h:mm a z") {
 }
 
 def getTimeLabel(starting, ending){
+
 	def timeLabel = "Tap to set"
 
     if(starting && ending){
@@ -1262,7 +1221,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2 BETA\nDate: 24012017(0030)"
+    def text = "Neato (Connect)\nVersion: 1.1.7b\nDate: 17012017(0030)"
 }
 
 private def textCopyright() {
