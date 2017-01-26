@@ -179,7 +179,7 @@ metadata {
         htmlTile(name:"sleepScoreHTML", action: "getSleepScoreHTML", width: 2, height: 2, whiteList: ["fonts.gstatic.com", "fonts.googleapis.com", "www.gstatic.com", "raw.githubusercontent.com"])
         
         main(["switch"])
-    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "currentHeatLevel", "presence", "sleepScoreHTML", "chartHTML", "network", "status" ,"refresh"])
+    	details(["switch", "levelUp", "level", "heatingDuration", "heatingDurationUp", "levelDown", "heatingDurationDown", "currentHeatLevel", "presence", "sleepScoreHTML", "chartHTML", "network", "refresh", "status" ])
        
 	}
 }
