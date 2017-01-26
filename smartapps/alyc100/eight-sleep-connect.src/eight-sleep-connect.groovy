@@ -434,6 +434,8 @@ def addEightSleep() {
 
 def refreshDevices() {
 	log.info("Executing refreshDevices...")
+    atomicState.renewAttempt = 0
+    atomicState.renewAttemptPartner = 0
 	getChildDevices().each { device ->
     	log.info("Refreshing device ${device.name} ...")
     	device.refresh()
