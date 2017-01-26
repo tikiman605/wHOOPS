@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY 
+ *	26.01.2017: v1.0b - Token renew error fix.
  *	26.01.2017: v1.0 - Remove BETA label.
  *
  *	19.01.2017: 1.0 BETA Release 6 - Added notification framework with option screen.
@@ -461,7 +462,7 @@ def getEightSleepAccessToken() {
     if (resp.status == 200) {
 		state.eightSleepAccessToken = resp.data.session.token
         state.userId = resp.data.session.userId
-        state.expirationDate = resp.data.session.expirationDate
+        atomicState.expirationDate = resp.data.session.expirationDate
         log.debug "eightSleepAccessToken: $resp.data.session.token"  
         log.debug "eightSleepUserId: $resp.data.session.userId"  
         log.debug "eightSleepTokenExpirationDate: $resp.data.session.expirationDate" 
@@ -483,7 +484,7 @@ def getEightSleepPartnerAccessToken() {
     if (resp.status == 200) {
 		state.eightSleepPartnerAccessToken = resp.data.session.token
         state.partnerUserId = resp.data.session.userId
-        state.partnerExpirationDate = resp.data.session.expirationDate
+        atomicState.partnerExpirationDate = resp.data.session.expirationDate
         log.debug "eightSleepPartnerAccessToken: $resp.data.session.token"  
         log.debug "partnerUserId: $resp.data.session.userId"  
         log.debug "partnerExpirationDate: $resp.data.session.expirationDate" 
@@ -555,11 +556,19 @@ Map apiRequestHeaders() {
    //Check token expiry
    if (state.eightSleepAccessToken) {
    		def now = new Date().getTime()
-   		def sessionExpiryTime = Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", state.expirationDate).getTime()
+   		def sessionExpiryTime = Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", atomicState.expirationDate).getTime()
    		if (now > sessionExpiryTime) {
-   			log.debug "Renewing Access Token"
-        	getEightSleepAccessToken()
-   		}
+        	if (!atomicState.renewAttempt) {atomicState.renewAttempt = 0}
+            log.debug "Renewing Access Token Attempt ${atomicState.renewAttempt}"
+            if (atomicState.renewAttempt < 5) {
+            	atomicState.renewAttempt = atomicState.renewAttempt +1
+        		getEightSleepAccessToken()
+            } else {
+            	log.error "Renew attempt limit reached"
+            }
+   		} else {
+        	atomicState.renewAttempt = 0
+        }
    }
    
    return [ "Host": "client-api.8slp.net",
@@ -581,11 +590,19 @@ Map apiPartnerRequestHeaders() {
    //Check token expiry
    if (state.eightSleepPartnerAccessToken) {
    		def now = new Date().getTime()
-   		def sessionExpiryTime = Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", state.partnerExpirationDate).getTime()
+   		def sessionExpiryTime = Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", atomicState.partnerExpirationDate).getTime()
    		if (now > sessionExpiryTime) {
-   			log.debug "Renewing Partner Access Token"
-        	getEightSleepPartnerAccessToken()
-   		}
+        	if (!atomicState.renewAttemptPartner) {atomicState.renewAttemptPartner = 0}
+            log.debug "Renewing Partner Access Token Attempt ${atomicState.renewAttempt}"
+            if (atomicState.renewAttemptPartner < 5) {
+            	atomicState.renewAttemptPartner = atomicState.renewAttemptPartner +1
+        		getEightSleepPartnerAccessToken()
+            } else {
+            	log.error "Renew attempt limit reached"
+            }
+   		} else {
+        	atomicState.renewAttemptPartner = 0
+        }
    }
    
    return [ "Host": "client-api.8slp.net",
