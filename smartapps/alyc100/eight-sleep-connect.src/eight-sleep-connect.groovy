@@ -654,7 +654,7 @@ def messageHandler(msg, forceFlag) {
 }
 
 private def textVersion() {
-    def text = "Eight Sleep (Connect)\nVersion: 1.0\nDate: 26012017(1130)"
+    def text = "Eight Sleep (Connect)\nVersion: 1.0b\nDate: 26012017(2015)"
 }
 
 private def textCopyright() {
