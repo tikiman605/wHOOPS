@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *  02-03-2017: 1.2b - Critical error fix that stopped cleaning completely.
  *  23-02-2017: 1.2 - Add delay option for clean when using Mode as trigger. Add option to disable notification before scheduled clean.
  *  27-01-2017: 1.2 BETA Release 2 - Fix to scheduler.
  *  25-01-2017: 1.2 BETA Release 1b - Minor fix to SmartSchedule menus.
@@ -573,6 +574,7 @@ def initialize() {
     }
     runIn(getNextTimeInSeconds(), timeHandler)
     runEvery5Minutes('pollOn') // Asynchronously refresh devices so we don't block
+    
 }
 
 def uninstalled() {
@@ -1109,7 +1111,7 @@ def setSHMToAway() {
 }
 
 def startConditionalClean(data) {
-	def botvacId = data.botvacId
+	def botvacId = data.data.botvacId
 	log.debug "Executing 'startConditionalClean for $botvacId'"
 	if (getAllOk(botvacId)) {
     	def botvacDevice = getChildDevice(botvacId)
@@ -1277,7 +1279,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2\nDate: 23022017(2300)"
+    def text = "Neato (Connect)\nVersion: 1.2b\nDate: 02032017(1320)"
 }
 
 private def textCopyright() {
