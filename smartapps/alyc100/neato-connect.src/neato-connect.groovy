@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *  06-03-2017: 1.2c - Bug fix. Schedule ignored when SS notifications are turned off for mode and switch triggers.
  *  02-03-2017: 1.2b - Critical error fix that stopped cleaning completely.
  *  23-02-2017: 1.2 - Add delay option for clean when using Mode as trigger. Add option to disable notification before scheduled clean.
  *  27-01-2017: 1.2 BETA Release 2 - Fix to scheduler.
@@ -1172,7 +1173,14 @@ def messageHandler(msg, forceFlag) {
 }
 
 private getAllOk(botvacId) {
-	getTriggerConditionsOk(botvacId) && getDaysOk(botvacId) && getTimeOk(botvacId)
+	getTriggerConditionsOk(botvacId) && getDaysOk(botvacId) && getTimeOk(botvacId) && getScheduleOk(botvacId)
+}
+
+private getScheduleOk(botvacId) {
+	def t = (now() - state.lastClean[botvacId]) + 2
+    def result = t > (settings["ssCleaningInterval#$botvacId"] * 86400000)
+    log.trace "scheduleOk for $botvacId = $result"
+    result
 }
 
 private getTriggerConditionsOk(botvacId) {
@@ -1279,7 +1287,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2b\nDate: 02032017(1320)"
+    def text = "Neato (Connect)\nVersion: 1.2c\nDate: 06032017(0015)"
 }
 
 private def textCopyright() {
