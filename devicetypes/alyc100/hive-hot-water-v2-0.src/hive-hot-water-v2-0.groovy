@@ -1,7 +1,7 @@
 /**
  *  Hive Hot Water V2.0
  *
- *  Copyright 2015 Alex Lee Yuk Cheung
+ *  Copyright 2017 Alex Lee Yuk Cheung
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -16,6 +16,9 @@
  *    25.02.2016
  *    v2.0 BETA - Initial Release
  *	  v2.0b - Fix blank temperature readings on Android ST app
+ *
+ *	  10.03.2017
+ *	  v2.0c - Fix to boost mode.
  */
 
 metadata {
@@ -185,9 +188,9 @@ def setThermostatMode(mode) {
         	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "OFF"]]]]
             ]
     } else if (mode == 'heat') {
-    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"HEAT"},"activeScheduleLock":{"targetValue":true},"targetHeatTemperature":{"targetValue":99}}}]}
+    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"HEAT"},"activeScheduleLock":{"targetValue":false}}}]}
     	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], activeScheduleLock: [targetValue: true], targetHeatTemperature: [targetValue: "99"]]]]
+        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], activeScheduleLock: [targetValue: false]]]]
             ]
     } else if (mode == 'emergency heat') {
     	if (state.boostLength == null || state.boostLength == '')
@@ -195,9 +198,9 @@ def setThermostatMode(mode) {
         	state.boostLength = 60
             sendEvent("name":"boostLength", "value": 60, displayed: true)
         }
-    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"BOOST"},"scheduleLockDuration":{"targetValue":30},"targetHeatTemperature":{"targetValue":99}}}]}
+    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"BOOST"},"scheduleLockDuration":{"targetValue":30},"targetHeatTemperature":{"targetValue":true}}}]}
     	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "BOOST"], scheduleLockDuration: [targetValue: state.boostLength], targetHeatTemperature: [targetValue: "99"]]]]
+        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "BOOST"], scheduleLockDuration: [targetValue: state.boostLength], activeScheduleLock: [targetValue: true]]]]
             ]
     }
     
