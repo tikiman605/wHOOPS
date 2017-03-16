@@ -60,7 +60,8 @@ definition(
     iconUrl: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/neato_icon.png",
     iconX2Url: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/neato_icon.png",
     iconX3Url: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/neato_icon.png",
-    oauth: true)
+    oauth: true,
+    singleInstance: true)
 
 {
 	appSetting "clientId"
@@ -482,6 +483,7 @@ private refreshAuthToken() {
 					messageHandler(notificationMessage, true)
                     atomicState.authToken = null
 					atomicState.reAttempt = 0
+                    
 				}
 			}
 		}
@@ -1291,7 +1293,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2c\nDate: 06032017(0015)"
+    def text = "Neato (Connect)\nVersion: 1.2d\nDate: 16032017(1815)"
 }
 
 private def textCopyright() {
