@@ -13,6 +13,8 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *  16-03-2017: 1.2d - Bug fix. Schedule not reset automatically when clean starts in some scenarios.
+ 					 - Bug fix. Switch triggers not working.
  *  06-03-2017: 1.2c - Bug fix. Schedule ignored when SS notifications are turned off for mode and switch triggers.
  *  02-03-2017: 1.2b - Critical error fix that stopped cleaning completely.
  *  23-02-2017: 1.2 - Add delay option for clean when using Mode as trigger. Add option to disable notification before scheduled clean.
@@ -838,7 +840,7 @@ def eventHandler(evt) {
         	messageHandler(msg, false)
 		}
      }
-	 else if (evt.value == "cleaning") {
+	 else if (evt.value == loc) {
      	unschedule(pollOn)
         unschedule(scheduleAutoDock)
         //Increase poll interval during cleaning
@@ -847,11 +849,11 @@ def eventHandler(evt) {
         log.debug "$evt.device.deviceNetworkId has started cleaning"
         state.lastClean[evt.device.deviceNetworkId] = now()
         state.botvacOnTimeMarker[evt.device.deviceNetworkId] = now()
+        log.debug "$evt.device.deviceNetworkId has started cleaning"
         if (settings.forceClean) { state.forceCleanNotificationSent[evt.device.deviceNetworkId] = false }
         //Remove SmartSchedule flag
         state.smartSchedule[evt.device.deviceNetworkId] = false
 		sendEvent(linkText:app.label, name:"${evt.displayName}", value:"on",descriptionText:"${evt.displayName} is on", eventType:"SOLUTION_EVENT", displayed: true)
-		log.trace "${evt.displayName} is on"
 		msg = "${evt.displayName} is on"
 		if (settings.sendBotvacOn) {
 			messageHandler(msg, false)
@@ -929,18 +931,17 @@ def smartScheduleHandler(evt) {
         	}
         }
     	//If mode change event, schedule trigger or presence trigger
-    	else {
-    		//Check conditions, time and day have been met and execute clean. If no trigger is specified rely on pollOn method to start clean.
-        	if (settings["ssScheduleTrigger#$botvacId"] != "none") {
-            	def delay = 0
-                if (settings["ssStartDelay#$botvacId"]) delay = settings["ssStartDelay#$botvacId"] * 60
-                if (delay > 0) {
-        			runIn(delay, startConditionalClean, [data: [botvacId: botvacId]])
-                } else {
-                	startConditionalClean([data: [botvacId: botvacId]])
-                }
-        	}
-    	}   	
+    	//Check conditions, time and day have been met and execute clean. If no trigger is specified rely on pollOn method to start clean.
+        if (settings["ssScheduleTrigger#$botvacId"] != "none") {
+           	def delay = 0
+            if (settings["ssStartDelay#$botvacId"]) delay = settings["ssStartDelay#$botvacId"] * 60
+            if (delay > 0) {
+        		runIn(delay, startConditionalClean, [data: [botvacId: botvacId]])
+            } else {
+               	startConditionalClean([data: [botvacId: botvacId]])
+            }
+        }
+    	  	
     }
 }
 
@@ -1008,7 +1009,8 @@ def pollOn() {
 				if (t > (settings.forceCleanDelay * 86400000)) {
             		log.debug "Force clean activated as ${t/86400000} days has elapsed"
 					messageHandler(childDevice.displayName + " has not cleaned for " + settings.forceCleanDelay + " days. Forcing a clean.", true)
-                	childDevice.on()
+                	resetSmartScheduleForDevice(botvacId) 
+                    childDevice.on()
         		}
        	 	}
         }
@@ -1075,15 +1077,16 @@ def resetSmartScheduleForDevice(botvacId) {
    		//Remove existing SmartSchedule flag
     	state.smartSchedule[botvacId] = false
     }
-    /*
+    /**
     //DEBUG PURPOSES ONLY. FAKE TIME ON OVERRIDE SWITCH AND INCREASE POLL
     //state.lastClean[deviceNetworkId] = Date.parseToStringDate("Thu Oct 13 01:23:45 UTC 2016").getTime()
-    state.lastClean[deviceNetworkId] = 1476868627993
-    state.botvacOnTimeMarker[deviceNetworkId] = 1476889942741
-    //unschedule(pollOn)
-    //schedule("0 0/1 * * * ?", pollOn)
-    log.debug "Fake data loaded.... " + (now() - state.lastClean[deviceNetworkId])/86400000 
-    */
+    state.lastClean[botvacId] = 1476868627993
+    state.botvacOnTimeMarker[botvacId] = 1476889942741
+    unschedule(pollOn)
+    schedule("0 0/1 * * * ?", pollOn)
+    log.debug "Fake data loaded.... " + (now() - state.lastClean[botvacId])/86400000 
+    **/
+    
 }
 
 //Helper methods
@@ -1121,6 +1124,7 @@ def startConditionalClean(data) {
          	if (settings.ssNotification) {
                 messageHandler("Neato SmartSchedule has started ${botvacDevice.displayName} cleaning.", false)
             }
+            resetSmartScheduleForDevice(botvacId) 
             botvacDevice.on()
          }   	
      }
