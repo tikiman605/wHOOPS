@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	16-03-2017: 1.2e - Bug fix. Enforce single instance of app.
  *  16-03-2017: 1.2d - Bug fix. Schedule not reset automatically when clean starts in some scenarios.
  *					 - Bug fix. Switch triggers not working.
  *  06-03-2017: 1.2c - Bug fix. Schedule ignored when SS notifications are turned off for mode and switch triggers.
@@ -1293,7 +1294,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2d\nDate: 16032017(1815)"
+    def text = "Neato (Connect)\nVersion: 1.2e\nDate: 16032017(1930)"
 }
 
 private def textCopyright() {
