@@ -14,7 +14,7 @@
  *
  *  VERSION HISTORY
  *  16-03-2017: 1.2d - Bug fix. Schedule not reset automatically when clean starts in some scenarios.
- 					 - Bug fix. Switch triggers not working.
+ *					 - Bug fix. Switch triggers not working.
  *  06-03-2017: 1.2c - Bug fix. Schedule ignored when SS notifications are turned off for mode and switch triggers.
  *  02-03-2017: 1.2b - Critical error fix that stopped cleaning completely.
  *  23-02-2017: 1.2 - Add delay option for clean when using Mode as trigger. Add option to disable notification before scheduled clean.
