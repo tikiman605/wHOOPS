@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	23-03-2017: 1.2f - Bug fix. Neato Botvac null pointer when start delay is set.
  *	16-03-2017: 1.2e - Bug fix. Enforce single instance of app.
  *  16-03-2017: 1.2d - Bug fix. Schedule not reset automatically when clean starts in some scenarios.
  *					 - Bug fix. Switch triggers not working.
@@ -941,7 +942,7 @@ def smartScheduleHandler(evt) {
             if (delay > 0) {
         		runIn(delay, startConditionalClean, [data: [botvacId: botvacId]])
             } else {
-               	startConditionalClean([data: [botvacId: botvacId]])
+               	startConditionalClean([botvacId: botvacId])
             }
         }
     	  	
@@ -1118,7 +1119,7 @@ def setSHMToAway() {
 }
 
 def startConditionalClean(data) {
-	def botvacId = data.data.botvacId
+	def botvacId = data.botvacId
 	log.debug "Executing 'startConditionalClean for $botvacId'"
 	if (getAllOk(botvacId)) {
     	def botvacDevice = getChildDevice(botvacId)
