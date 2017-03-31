@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *  31-03-2017: 1.5.1b - Add actuator capability for ACTION TILES compatability.
  *	24-01-2017: 1.5.1 - Sq ft display on maps and stats.
  *
  *	24-01-2017: 1.5b - Better error handling for maps.
@@ -51,6 +52,7 @@ metadata {
 		capability "Polling"
 		capability "Refresh"
 		capability "Switch"
+        capability "Actuator"
         
 		command "refresh"
         command "dock"
