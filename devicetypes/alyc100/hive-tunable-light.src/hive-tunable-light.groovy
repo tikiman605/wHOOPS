@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light Tunable V1.0.4
+ *  Hive Active Light Tunable V1.0.3
  *
  *  Copyright 2016 Tom Beech
  *
@@ -15,7 +15,7 @@
  * 23.11.16 - Made change to ensure that setting the brightness higher than 1 also sends the 'ON' command. Some smartapps turn bulbs on by setting the brightness to >0
  * 23.11.16 - Fixed setLevel so that it updates the devices switch state if it turned the light on or off
  * 24.11.16 - Added support for when a bulb is physically powered off
- * 24.11.16 - Fixed issue where setLevel was not working after change on 23.11.16
+ * 30.05.17 - Updated for Hive Beekeeper API
  */
 
 metadata {
@@ -95,8 +95,8 @@ def setColorTemperature(value) {
         
     def genericName = getGenericName(value)
     
-    def args = [nodes: [[attributes: [colourTemperature: [targetValue: value], colourTemperatureTransitionTime: [targetValue: "1"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = ["colourMode":"WHITE","colourTemperature":value]            
+    def resp = parent.apiPOST("/nodes/tuneablelight/${device.deviceNetworkId}", args)
 
 	if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -117,22 +117,23 @@ def setLevel(double value) {
     if(val == 0) {
     	onOff = "OFF"
     }
+        
+    def args = [status: onOff, brightness: val]    
+    def resp = parent.apiPOST("/nodes/tuneablelight/${device.deviceNetworkId}", args)
     
-    def args = [nodes:[[attributes:[state:[targetValue:onOff],brightness:[targetValue:val],brightnessTransitionTime:[targetValue:"1"]]]]]
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
-
 	if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
         poll()
     } else {    
     	sendEvent(name: 'level', value: val)
     	sendEvent(name: 'switch', value: onOff.toLowerCase())
+        log.debug "Level set"
     }
 }
 
 def on() {    
-    def args = [nodes: [	[attributes: [state: [targetValue: "ON"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "ON"]             
+    def resp = parent.apiPOST("/nodes/tuneablelight/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -144,8 +145,8 @@ def on() {
 
 def off() {
 
-    def args = [nodes: [	[attributes: [state: [targetValue: "OFF"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "OFF"]     
+    def resp = parent.apiPOST("/nodes/tuneablelight/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -164,36 +165,41 @@ def refresh() {
 }
 
 def poll() {
-	def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
-	if (resp.status != 200) {
-		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
-		return []
-	}
-	data.nodes = resp.data.nodes
 
-	def state = data.nodes.attributes.state.reportedValue[0] 
-	def temperature = data.nodes.attributes.colourTemperature.reportedValue[0]
-	def brightness =  data.nodes.attributes.brightness.reportedValue[0]
-    def presence = data.nodes.attributes.presence.reportedValue[0]
+	def resp = parent.apiGET('/products', '')
+      
+    // Loop through the results until we get the device we want to deal with
+    resp.data.each { currentD ->
+        if(currentD.id == device.deviceNetworkId) {
+            log.debug "Found device ${currentD.id} and name ${currentD.state.name}"
+                        
+            def state = currentD.state.status
+            def temperature = currentD.state.colourTemperature
+            def brightness =  currentD.state.brightness
+            def presence = currentD.props.online
 
-	brightness = String.format("%.0f", brightness)
-    temperature = String.format("%.0f", temperature)
+            //brightness = String.format("%.0f", brightness)
+            //temperature = String.format("%.0f", temperature)
 
-	log.debug "State: $state"
-    log.debug "Temperature: $temperature"
-    log.debug "Brightness: $brightness"
-    log.debug "Presence: $presence"
-    
-	if(presence == "ABSENT") {
-    	// Bulb is not present (i.e. turned off at the switch or removed)
-    	sendEvent(name: 'switch', value: "off")	        
-    } else {    	
-        sendEvent(name: 'switch', value: state.toLowerCase())
-    }
-    
-    sendEvent(name: 'level', value: brightness)
+            log.debug "State: $state"
+            log.debug "Temperature: $temperature"
+            log.debug "Brightness: $brightness"
+            log.debug "Presence: $presence"
 
-    def genericName = getGenericName(value)
-    sendEvent(name: "colorName", value: genericName)
-    sendEvent(name: "colorTemperature", value: temperature) 
+            if(presence == "ABSENT") {
+                // Bulb is not present (i.e. turned off at the switch or removed)
+                sendEvent(name: 'switch', value: "off")	        
+            } else {    	
+                sendEvent(name: 'switch', value: state.toLowerCase())
+            }
+
+            sendEvent(name: 'level', value: brightness)
+
+            def genericName = getGenericName(value)
+            sendEvent(name: "colorName", value: genericName)
+            sendEvent(name: "colorTemperature", value: temperature) 
+            
+            return;
+        }
+    }   	
 }
