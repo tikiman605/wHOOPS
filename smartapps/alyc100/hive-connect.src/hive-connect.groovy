@@ -18,7 +18,7 @@
  *
  *  24.02.2016
  *  v2.0 BETA - New Hive Connect App
- *  v2.0.1 BETA - Fix bug for accounts that do not have capabilities attribute against thermostat nodes.
+ *  v2.0.1 BETA - Fix bug for accounts that do not have capabilities attribute against thermostat.
  *	v2.1 - Improved authentication process and overhaul to UI. Added notification capability.
  *  v2.1.1 - Bug fix when initially selecting devices for the first time.
  *	v2.1.2 - Move external icon references into Github\
@@ -52,6 +52,10 @@
  *
  * 	02.12.2016
  * 	v2.6 - Added support for Hive Active Colour Bulb - Author: Tom Beech
+ *
+ *	28.05.2017
+ *	v2.7 - Support for new Hive Beekeeper API - Authors: Tom Beech, Alex Lee Yuk Cheung
+ *		 - Removed support for Hive Contact Sensor. Zigbee integration by Simon Green is preferred option.
  */
 definition(
 		name: "Hive (Connect)",
@@ -78,7 +82,8 @@ preferences {
 	page(name: "tmaConfigurePAGE")
 }
 
-def apiURL(path = '/') 			 { return "https://api-prod.bgchprod.info:443/omnia${path}" }
+def apiBeekeeperUKURL(path = '/') 			 { return "https://beekeeper-uk.hivehome.com:443/1.0${path}" }
+def apiBeekeeperURL(path = '/') 			 { return "https://beekeeper.hivehome.com:443/1.0${path}" }
 
 def startPage() {
 	if (parent) {
@@ -129,19 +134,19 @@ def mainPage() {
 
 def headerSECTION() {
 	return paragraph (image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/10457773_334250273417145_3395772416845089626_n.png",
-                  "Hive (Connect)\nVersion: 2.6\nDate: 02122016(1015)")
+                  "Hive (Connect)\nVersion: 3.0\nDate: 29052017(2300)")
 }
 
 def stateTokenPresent() {
-	return state.hiveAccessToken != null && state.hiveAccessToken != ''
+	return state.beekeeperAccessToken != null && state.beekeeperAccessToken != ''
 }
 
 def authenticated() {
-	return (state.hiveAccessToken != null && state.hiveAccessToken != '') ? "complete" : null
+	return (state.beekeeperAccessToken != null && state.beekeeperAccessToken != '') ? "complete" : null
 }
 
 def devicesSelected() {
-	return (selectedHeating || selectedHotWater || selectedContactSensor || selectedBulb || selectedTunableBulb || selectedActivePlug || selectedColourBulb) ? "complete" : null
+	return (selectedHeating || selectedHotWater || selectedBulb || selectedTunableBulb || selectedActivePlug || selectedColourBulb) ? "complete" : null
 }
 
 def preferencesSelected() {
@@ -168,7 +173,6 @@ def tmaDescription() {
 def getDevicesSelectedString() {
 	if (state.hiveHeatingDevices == null ||
     	state.hiveHotWaterDevices == null || 
-        state.hiveContactSensorDevices == null || 
         state.hiveTunableBulbDevices == null || 
         state.hiveBulbDevices == null ||
         state.hiveActivePlugDevices == null ||
@@ -187,11 +191,6 @@ def getDevicesSelectedString() {
            	listString += "${state.hiveHotWaterDevices[childDevice]}\n"
 	}
     
-	selectedContactSensor.each { childDevice ->		
-        if (null != state.hiveContactSensorDevices)         
-        	listString += "${state.hiveContactSensorDevices[childDevice]}\n"		
-	}
-  
 	selectedBulb.each { childDevice ->
         if (null != state.hiveBulbDevices)
             listString += "${state.hiveBulbDevices[childDevice]}\n"
@@ -241,7 +240,7 @@ def loginPAGE() {
 			}
 		}
 	} else {
-		getHiveAccessToken()
+		getBeekeeperAccessToken()
 		dynamicPage(name: "loginPAGE", title: "Login", uninstall: false, install: false) {
 			section { headerSECTION() }
 			section { paragraph "Enter your Hive credentials below to enable SmartThings and Hive integration." }
@@ -272,7 +271,6 @@ def selectDevicePAGE() {
             input "selectedBulb", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/hive-bulb.jpg", required:false, title:"Select Hive Light Dimmable Devices \n(${state.hiveBulbDevices.size() ?: 0} found)", multiple:true, options:state.hiveBulbDevices
 			input "selectedTunableBulb", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/hive-tunablebulb.jpg", required:false, title:"Select Hive Light Tuneable Devices \n(${state.hiveTunableBulbDevices.size() ?: 0} found)", multiple:true, options:state.hiveTunableBulbDevices
             input "selectedColourBulb", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/hive-colouredbulb.jpg", required:false, title:"Select Hive Light Colour Devices \n(${state.hiveColourBulb.size() ?: 0} found)", multiple:true, options:state.hiveColourBulb
-            input "selectedContactSensor", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/hive-window-door-sensor-815702baa8f484d342f2ebf3eb38ab971acecba02586d0ec485c588f2646c935.jpg", required:false, title:"Select Hive Contact Sensor Devices \n(${state.hiveContactSensorDevices.size() ?: 0} found)", multiple:true, options:state.hiveContactSensorDevices
             input "selectedActivePlug", "enum", image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/hive-activeplug.jpg", required:false, title:"Select Hive Plug Devices \n(${state.hiveActivePlugDevices.size() ?: 0} found)", multiple:true, options:state.hiveActivePlugDevices
 		}
   	}
@@ -502,10 +500,7 @@ def initialize() {
 		if (selectedHotWater) {
 			addHotWater()
 		}
-		if (selectedContactSensor) {
-			addContactSensor()
-		}
-        if(selectedBulb) {
+		if(selectedBulb) {
         	addBulb()
         }
         if(selectedTunableBulb) {
@@ -894,7 +889,6 @@ def updateDevices() {
 	def devices = devicesList()
   state.hiveHeatingDevices = [:]
   state.hiveHotWaterDevices = [:]
-  state.hiveContactSensorDevices = [:]
   state.hiveBulbDevices = [:]
   state.hiveTunableBulbDevices = [:]
   state.hiveActivePlugDevices = [:]
@@ -903,118 +897,101 @@ def updateDevices() {
   def selectors = []
 	devices.each { device ->
         selectors.add("${device.id}")
-        if (device.nodeType == "http://alertme.com/schema/json/node.class.thermostat.json#" && device.attributes.activeHeatCoolMode != null) {
-            def parentNode = devices.find { d -> d.id == device.parentNodeId }
-                log.debug "Found Device: ${parentNode.name}"
-                // Heating Control
-          if ((device.attributes.supportsHotWater != null) && (device.attributes.supportsHotWater.reportedValue == false) && (device.attributes.temperature != null)) {
-                    log.debug "Identified: ${parentNode.name} Hive Heating"
-            def value = "${parentNode.name} Hive Heating"
-                    def key = device.id
-                    state.hiveHeatingDevices["${key}"] = value
+        //Heating
+        if (device.type == "heating") {
+            log.debug "Found Device: ${device.state.name}"
+            //Heating Control
+            log.debug "Identified: ${device.state.name} Hive Heating"
+            def value = "${device.state.name} Hive Heating"
+            def key = device.id
+            state.hiveHeatingDevices["${key}"] = value
 
             //Update names of devices with Hive
                 def childDevice = getChildDevice("${device.id}")
                 if (childDevice) {
                     //Update name of device if different.
-                    if(childDevice.name != parentNode.name + " Hive Heating") {
-                            childDevice.name = parentNode.name + " Hive Heating"
-                            log.debug "Device's name has changed."
-                        }
-                }
-                // Water Control
-            } else if (device.nodeType == "http://alertme.com/schema/json/node.class.thermostat.json#" && device.attributes.supportsHotWater != null && device.attributes.supportsHotWater.reportedValue == true) {
-                    log.debug "Identified: ${parentNode.name} Hive Hot Water"
-            def value = "${parentNode.name} Hive Hot Water"
-                    def key = device.id
-                    state.hiveHotWaterDevices["${key}"] = value
-
-            //Update names of devices
-                def childDevice = getChildDevice("${device.id}")
-                if (childDevice) {
-                    //Update name of device if different.
-                    if(childDevice.name != parentNode.name + " Hive Hot Water") {
-                            childDevice.name = parentNode.name + " Hive Hot Water"
-                            log.debug "Device's name has changed."
-                        }
-                }
-                }
-            // Contact Sensor
-            } else if (device.nodeType == "http://alertme.com/schema/json/node.class.contact.sensor.json#" && device.attributes.state != null) {
-                log.debug "Identified: ${device.name} Hive Contact Sensor"
-          		def value = "${device.name} Hive Contact Sensor"
-                def key = device.id
-                state.hiveContactSensorDevices["${key}"] = value
-                //Update names of devices
-            	def childDevice = getChildDevice("${device.id}")
-            	if (childDevice) {
-                	//Update name of device if different.
-                	if(childDevice.name != device.name + " Hive Contact Sensor") {
-                            childDevice.name = device.name + " Hive Contact Sensor"
+                    if(childDevice.name != device.state.name + " Hive Heating") {
+                            childDevice.name = device.state.name + " Hive Heating"
                             log.debug "Device's name has changed."
                     }
-            	}
-        	// Tuneable Active Light
-        	} else if (device.nodeType == "http://alertme.com/schema/json/node.class.tunable.light.json#") {
-				log.debug "Identified: ${device.name} Hive Light Tuneable"
-            	def value = "${device.name} Hive Light Tuneable"
+                }
+        // Water Control
+        } else if (device.type == "hotwater") {
+        	log.debug "Identified: ${device.state.name} Hive Hot Water"
+            def value = "${device.state.name} Hive Hot Water"
+            def key = device.id
+            state.hiveHotWaterDevices["${key}"] = value
+
+            //Update names of devices
+            def childDevice = getChildDevice("${device.id}")
+            if (childDevice) {
+            	//Update name of device if different.
+                    if(childDevice.name != device.state.name + " Hive Hot Water") {
+                            childDevice.name = device.state.name + " Hive Hot Water"
+                            log.debug "Device's name has changed."
+                    }
+            }
+        //Dimmable Bulb
+        } else if (device.type == "tuneablelight") {
+			log.debug "Identified: ${device.state.name} Hive Light Tunable"
+            def value = "${device.state.name} Hive Light Tunable"
                 def key = device.id
                 state.hiveTunableBulbDevices["${key}"] = value
                 //Update names of devices
             	def childDevice = getChildDevice("${device.id}")
             	if (childDevice) {
                 	//Update name of device if different.
-                	if(childDevice.name != device.name) {
-                            childDevice.name = device.name
+                	if(childDevice.name != device.state.name) {
+                            childDevice.name = device.state.name
                             log.debug "Device's name has changed."
                     }
             	}
-        	//White Active Light Bulb
-        	} else if (device.nodeType == "http://alertme.com/schema/json/node.class.light.json#") {
-				log.debug "Identified: ${device.name} Hive Light Dimmable"
-            	def value = "${device.name} Hive Light Dimmable"
-                def key = device.id
-                state.hiveBulbDevices["${key}"] = value
-                //Update names of devices
-            	def childDevice = getChildDevice("${device.id}")
-            	if (childDevice) {
-                	//Update name of device if different.
-                	if(childDevice.name != device.name) {
-                            childDevice.name = device.name
-                            log.debug "Device's name has changed."
-                    }
-            	}
-        	//Colour Bulb
-        	} else if (device.nodeType == "http://alertme.com/schema/json/node.class.colour.tunable.light.json#") {
-				log.debug "Identified: ${device.name} Hive Light Colour"
-            	def value = "${device.name} Hive Light Colour"
+        //Colour Bulb
+        } else if (device.type == "colourtuneablelight") {
+			log.debug "Identified: ${device.state.name} Hive Colour Bulb"
+            def value = "${device.state.name} Hive Colour Bulb"
                 def key = device.id
                 state.hiveColourBulb["${key}"] = value
                 //Update names of devices
             	def childDevice = getChildDevice("${device.id}")
             	if (childDevice) {
                 	//Update name of device if different.
-                	if(childDevice.name != device.name) {
-                            childDevice.name = device.name
+                	if(childDevice.name != device.state.name) {
+                            childDevice.name = device.state.name
+                            log.debug "Device's name has changed."
+                    }
+            	}
+        //White Active Light Bulb
+        } else if (device.type == "warmwhitelight") {
+			log.debug "Identified: ${device.state.name} Hive Light Dimmable"
+            def value = "${device.state.name} Hive Light Dimmable"
+                def key = device.id
+                state.hiveBulbDevices["${key}"] = value
+                //Update names of devices
+            	def childDevice = getChildDevice("${device.id}")
+            	if (childDevice) {
+                	//Update name of device if different.
+                	if(childDevice.name != device.state.name) {
+                            childDevice.name = device.state.name
                             log.debug "Device's name has changed."
                     }
             	}
         // Active Plug            
-        } else if (device.nodeType == "http://alertme.com/schema/json/node.class.smartplug.json#") {
-				log.debug "Identified: ${device.name} Hive Plug"
-            	def value = "${device.name} Hive Plug"
+        } else if (device.type == "activeplug") {
+				log.debug "Identified: ${device.state.name} Hive Plug"
+            	def value = "${device.state.name} Hive Plug"
                 def key = device.id
                 state.hiveActivePlugDevices["${key}"] = value
                 //Update names of devices
             	def childDevice = getChildDevice("${device.id}")
             	if (childDevice) {
                 	//Update name of device if different.
-                	if(childDevice.name != device.name) {
-                        childDevice.name = device.name
+                	if(childDevice.name != device.state.name) {
+                        childDevice.name = device.state.name
                         log.debug "Device's name has changed."
                     }
             	}
-          }
+          }	 
 	}
   //Remove devices if does not exist on the Hive platform
   getChildDevices().findAll { !selectors.contains("${it.deviceNetworkId}") }.each {
@@ -1073,30 +1050,6 @@ def addHotWater() {
 			log.debug "Created ${state.hiveHotWaterDevices[device]} with id: ${device}"
 		} else {
 			log.debug "found ${state.hiveHotWaterDevices[device]} with id ${device} already exists"
-		}
-
-	}
-}
-
-def addContactSensor() {
-	updateDevices()
-
-	selectedContactSensor.each { device ->
-
-        def childDevice = getChildDevice("${device}")
-
-        if (!childDevice) {
-    		log.info("Adding Hive Contact Sensor device ${device}: ${state.hiveContactSensorDevices[device]}")
-
-        	def data = [
-                name: state.hiveContactSensorDevices[device],
-				label: state.hiveContactSensorDevices[device],
-			]
-            childDevice = addChildDevice("simonjgreen", "Hive Window or Door Sensor V1.0", "$device", null, data)
-            childDevice.refresh()
-			log.debug "Created ${state.hiveContactSensorDevices[device]} with id: ${device}"
-		} else {
-			log.debug "found ${state.hiveContactSensorDevices[device]} with id ${device} already exists"
 		}
 
 	}
@@ -1223,9 +1176,9 @@ def refreshDevices() {
 
 def devicesList() {
 	logErrors([]) {
-		def resp = apiGET("/nodes")
+		def resp = apiGET("/products")
 		if (resp.status == 200) {
-			return resp.data.nodes
+			return resp.data
 		} else {
 			log.error("Non-200 from device list call. ${resp.status} ${resp.data}")
 			return []
@@ -1237,11 +1190,11 @@ def apiGET(path, body = [:]) {
 	try {
     	if(!isLoggedIn()) {
 			log.debug "Need to login"
-			getHiveAccessToken()
+			getBeekeeperAccessToken()
 		}
-        log.debug("Beginning API GET: ${apiURL(path)}, ${apiRequestHeaders()}")
+        log.debug("Beginning API GET: ${apiBeekeeperUKURL(path)}, ${apiRequestHeaders()}")
 
-        httpGet(uri: apiURL(path), contentType: 'application/json', headers: apiRequestHeaders()) {response ->
+        httpGet(uri: apiBeekeeperUKURL(path), contentType: 'application/json', headers: apiRequestHeaders()) {response ->
 			logResponse(response)
 			return response
 		}
@@ -1255,11 +1208,11 @@ def apiPOST(path, body = [:]) {
 	try {
     	if(!isLoggedIn()) {
 			log.debug "Need to login"
-			getHiveAccessToken()
+			getBeekeeperAccessToken()
 		}
 		log.debug("Beginning API POST: ${path}, ${body}")
 
-		httpPostJson(uri: apiURL(path), body: body, headers: apiRequestHeaders() ) {response ->
+		httpPostJson(uri: apiBeekeeperUKURL(path), body: body, headers: apiRequestHeaders() ) {response ->
 			logResponse(response)
 			return response
 		}
@@ -1269,41 +1222,21 @@ def apiPOST(path, body = [:]) {
 	}
 }
 
-def apiPUT(path, body = [:]) {
-	try {
-    	if(!isLoggedIn()) {
-			log.debug "Need to login"
-			getHiveAccessToken()
-		}
-		log.debug("Beginning API PUT: ${path}, ${body}")
-
-		httpPutJson(uri: apiURL(path), body: body, headers: apiRequestHeaders() ) {response ->
-			logResponse(response)
-			return response
-		}
-	} catch (groovyx.net.http.HttpResponseException e) {
-		logResponse(e.response)
-		return e.response
-	}
-}
-
-def getHiveAccessToken() {
+def getBeekeeperAccessToken() {
 	try {
     	def params = [
-			uri: apiURL('/auth/sessions'),
+			uri: apiBeekeeperURL('/global/login'),
         	contentType: 'application/json',
         	headers: [
-              'Content-Type': 'application/vnd.alertme.zoo-6.1+json',
-              'Accept': 'application/vnd.alertme.zoo-6.2+json',
-              'Content-Type': 'application/*+json',
-              'X-AlertMe-Client': 'Hive Web Dashboard',
+              'Content-Type': 'application/json'
         	],
         	body: [
-        		sessions: [	[username: settings.username,
-                 		password: settings.password,
-                 		caller: 'Hive Web Dashboard']]
-        	]
-    	]
+        		username: settings.username,
+                password: settings.password,
+                devices: false,
+                products: false     	
+    		]
+        ]
 
 		state.cookie = ''
 
@@ -1315,43 +1248,39 @@ def getHiveAccessToken() {
 			log.debug "Adding cookie to collection: $cookie"
         	log.debug "auth: $response.data"
 			log.debug "cookie: $state.cookie"
-        	log.debug "sessionid: ${response.data.sessions[0].id}"
+        	log.debug "sessionid: ${response.data.token}"
 
-        	state.hiveAccessToken = response.data.sessions[0].id
+        	state.beekeeperAccessToken = response.data.token
         	// set the expiration to 5 minutes
-			state.hiveAccessToken_expires_at = new Date().getTime() + 300000
+			state.beekeeperAccessToken_expires_at = new Date().getTime() + 300000
             state.loginerrors = null
 		}
     } catch (groovyx.net.http.HttpResponseException e) {
-    	state.hiveAccessToken = null
-        state.hiveAccessToken_expires_at = null
+    	state.beekeeperAccessToken = null
+        state.beekeeperAccessToken_expires_at = null
    		state.loginerrors = "Error: ${e.response.status}: ${e.response.data}"
     	logResponse(e.response)
 		return e.response
     }
 }
 
-Map apiRequestHeaders() {
+def apiRequestHeaders() {
 	return [
-    	'Cookie': state.cookie,
-        'Content-Type': 'application/vnd.alertme.zoo-6.2+json',
-        'Accept': 'application/vnd.alertme.zoo-6.2+json',
-        'Content-Type': 'application/*+json',
-        'X-AlertMe-Client': 'Hive Web Dashboard',
-        'X-Omnia-Access-Token': "${state.hiveAccessToken}"
+        'authorization': "${state.beekeeperAccessToken}"
     ]
 }
 
 def isLoggedIn() {
+	state.remove("hiveAccessToken")
 	log.debug "Calling isLoggedIn()"
-	log.debug "isLoggedIn state $state.hiveAccessToken"
-	if(!state.hiveAccessToken) {
-		log.debug "No state.hiveAccessToken"
+	log.debug "isLoggedIn state $state.beekeeperAccessToken"
+	if(!state.beekeeperAccessToken) {
+		log.debug "No state.beekeeperAccessToken"
 		return false
 	}
 
 	def now = new Date().getTime()
-    return state.hiveAccessToken_expires_at > now
+    return state.beekeeperAccessToken_expires_at > now
 }
 
 
@@ -1375,7 +1304,7 @@ def logErrors(options = [errorReturn: null, logObject: log], Closure c) {
 	} catch (groovyx.net.http.HttpResponseException e) {
 		log.error("got error: ${e}, body: ${e.getResponse().getData()}")
 		if (e.statusCode == 401) { // token is expired
-			state.remove("hiveAccessToken")
+			state.remove("beekeeperAccessToken")
 			log.warn "Access token is not valid"
 		}
 		return options.errorReturn
