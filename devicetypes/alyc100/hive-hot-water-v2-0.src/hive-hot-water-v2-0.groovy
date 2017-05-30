@@ -19,6 +19,9 @@
  *
  *	  10.03.2017
  *	  v2.0c - Fix to boost mode.
+ *
+ *	  30.05.2017
+ *	  v2.1 - Updated to use Hive Beekeeper API.
  */
 
 metadata {
@@ -181,16 +184,16 @@ def auto() {
 def setThermostatMode(mode) {
 	mode = mode == 'cool' ? 'heat' : mode
     def args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], activeScheduleLock: [targetValue: false]]]]
+        		mode: "SCHEDULE"
             ]
     if (mode == 'off') {
      	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "OFF"]]]]
+        		mode: "OFF"
             ]
     } else if (mode == 'heat') {
     	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"HEAT"},"activeScheduleLock":{"targetValue":false}}}]}
     	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], activeScheduleLock: [targetValue: false]]]]
+        		mode: "MANUAL"
             ]
     } else if (mode == 'emergency heat') {
     	if (state.boostLength == null || state.boostLength == '')
@@ -198,13 +201,13 @@ def setThermostatMode(mode) {
         	state.boostLength = 60
             sendEvent("name":"boostLength", "value": 60, displayed: true)
         }
-    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"BOOST"},"scheduleLockDuration":{"targetValue":30},"targetHeatTemperature":{"targetValue":true}}}]}
     	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "BOOST"], scheduleLockDuration: [targetValue: state.boostLength], activeScheduleLock: [targetValue: true]]]]
-            ]
+            mode: "BOOST",
+            boost: state.boostLength
+        ]
     }
     
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def resp = parent.apiPOST("/nodes/hotwater/${device.deviceNetworkId}", args)
 	if (resp.status != 200) {
 		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
 		return []
@@ -217,13 +220,14 @@ def setThermostatMode(mode) {
 
 def poll() {
 	log.debug "Executing 'poll'"
-	def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
+	def resp = parent.apiGET("/products")
 	if (resp.status != 200) {
 		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
 		return []
 	}
-    	data.nodes = resp.data.nodes
-        
+    resp.data.each { currentDevice ->
+        if(currentDevice.id == device.deviceNetworkId) {   
+    	
         //Construct status message
         def statusMsg = "Currently"
         
@@ -236,37 +240,31 @@ def poll() {
     	def boostLabel = "Start\n$state.boostLength Min Boost"
         
         // determine hive hot water operating mode
-        def activeHeatCoolMode = data.nodes.attributes.activeHeatCoolMode.reportedValue[0]
-        def activeScheduleLock = data.nodes.attributes.activeScheduleLock.targetValue[0]
+        def mode = currentDevice.state.mode.toLowerCase()
         
-        log.debug "activeHeatCoolMode: $activeHeatCoolMode"
-        log.debug "activeScheduleLock: $activeScheduleLock"
-        
-        def mode = 'auto'
-        
-        if (activeHeatCoolMode == "OFF") {
-        	mode = 'off'
+        if (mode == "off") {
             statusMsg = statusMsg + " set to OFF"
         }
-        else if (activeHeatCoolMode == "BOOST") {
+        else if (mode == "boost") {
         	mode = 'emergency heat'
             statusMsg = statusMsg + " set to BOOST"
-            def boostTime = data.nodes.attributes.scheduleLockDuration.reportedValue[0]
+            def boostTime = currentDevice.state.boost
             boostLabel = "Boosting for \n" + boostTime + " mins"
             sendEvent("name":"boostTimeRemaining", "value": boostTime + " mins")
         }
-        else if (activeHeatCoolMode == "HEAT" && activeScheduleLock) {
+        else if (mode == "manual") {
         	mode = 'heat'
             statusMsg = statusMsg + " set to ON"
         }
         else {
+        	mode = 'auto'
         	statusMsg = statusMsg + " set to SCHEDULE"
         }
         
         sendEvent(name: 'thermostatMode', value: mode) 
         
         // determine if Hive hot water relay is on
-        def stateHotWaterRelay = data.nodes.attributes.stateHotWaterRelay.reportedValue[0]
+        def stateHotWaterRelay = currentDevice.state.status
         
         log.debug "stateHotWaterRelay: $stateHotWaterRelay"
         
@@ -284,7 +282,8 @@ def poll() {
         }
         sendEvent("name":"hiveHotWater", "value":statusMsg, displayed: false)
         sendEvent("name":"boostLabel", "value": boostLabel, displayed: false)
-        
+     }
+   }     
     
 }
 

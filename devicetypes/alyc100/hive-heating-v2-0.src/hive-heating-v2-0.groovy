@@ -33,6 +33,9 @@
  *	10.09.2016
  *	v2.1.6 - Allow a maximum temperature threshold to be set.
  *	v2.1.6b - Added event for maximum temperature threshold breach.
+ *
+ *	30.05.2017
+ *	v2.2 - Updated to use new Beekeeper API - Huge thanks to Tom Beech!
  */
 preferences 
 {
@@ -227,20 +230,20 @@ def setHeatingSetpoint(temp) {
          
     if (settings.disableDevice == null || settings.disableDevice == false) {
     	//if thermostat is off, set to manual 
+        def args
    		if (latestThermostatMode.stringValue == 'off') {
-    		def args = [
-        		nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], activeScheduleLock: [targetValue: true]]]]
-            	]
-			def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    		args = [
+        		mode: "SCHEDULE", target: temp
+            ]
 		
+    	} 
+    	else {
+    	// {"target":7.5}
+    		args = [
+        		target: temp
+        	]               
     	}
-    
-    	// {"nodes":[{"attributes":{"targetHeatTemperature":{"targetValue":11}}}]}    
-    	def args = [
-        	nodes: [	[attributes: [targetHeatTemperature: [targetValue: temp]]]]
-            ]               
-    
-    	def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)    	
+    	def resp = parent.apiPOST("/nodes/heating/${device.deviceNetworkId}", args)    	
     }
     runIn(4, refresh)
 }
@@ -365,16 +368,17 @@ def setThermostatMode(mode) {
 		mode = mode == 'cool' ? 'heat' : mode
 		log.debug "Executing 'setThermostatMode with mode $mode'"
     	def args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], scheduleLockDuration: [targetValue: 0], activeScheduleLock: [targetValue: false]]]]
+        		mode: "SCHEDULE"
             ]
     	if (mode == 'off') {
-     	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "OFF"], scheduleLockDuration: [targetValue: 0], activeScheduleLock: [targetValue: true]]]]
+     		args = [
+        		mode: "OFF"
             ]
     	} else if (mode == 'heat') {
-    	//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"HEAT"},"activeScheduleLock":{"targetValue":true}}}]}
-    	args = [
-        	nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "HEAT"], scheduleLockDuration: [targetValue: 0], activeScheduleLock: [targetValue: true]]]]
+        	//mode": "MANUAL", "target": 20
+    		args = [
+        		mode: "MANUAL", 
+                target: 20
             ]
     	} else if (mode == 'emergency heat') {  
     		if (state.boostLength == null || state.boostLength == '')
@@ -382,13 +386,15 @@ def setThermostatMode(mode) {
         		state.boostLength = 60
             	sendEvent("name":"boostLength", "value": 60, displayed: true)
         	}
-    		//{"nodes":[{"attributes":{"activeHeatCoolMode":{"targetValue":"BOOST"},"scheduleLockDuration":{"targetValue":30},"targetHeatTemperature":{"targetValue":22}}}]}
-    		args = [
-        		nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "BOOST"], scheduleLockDuration: [targetValue: state.boostLength], targetHeatTemperature: [targetValue: getBoostTempValue()]]]]
-            ]
+    		//"mode": "BOOST","boost": 60,"target": 22
+			args = [
+            	mode: "BOOST",
+                boost: state.boostLength,
+                target: getBoostTempValue()
+        	]
    		}
     
-    	def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    	def resp = parent.apiPOST("/nodes/heating/${device.deviceNetworkId}", args)
 		mode = mode == 'range' ? 'auto' : mode    	
     }
     runIn(4, refresh)
@@ -405,14 +411,13 @@ def refreshBoostLabel() {
 
 def poll() {
 	log.debug "Executing 'poll'"
-	def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
+	def resp = parent.apiGET("/products")
 	if (resp.status != 200) {
 		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
 		return []
 	}
-    
-    	data.nodes = resp.data.nodes
-        
+    resp.data.each { currentDevice ->
+        if(currentDevice.id == device.deviceNetworkId) {    
         //Construct status message
         def statusMsg = ""
         
@@ -425,10 +430,8 @@ def poll() {
     	def boostLabel = "Start\n$state.boostLength Min Boost"
         
         // get temperature status
-        def temperature = data.nodes.attributes.temperature.reportedValue[0]
-        def heatingSetpoint = data.nodes.attributes.targetHeatTemperature.reportedValue[0]
-        temperature = String.format("%2.1f",temperature)
-       	heatingSetpoint = String.format("%2.1f",heatingSetpoint)
+        def temperature = currentDevice.props.temperature
+        def heatingSetpoint = currentDevice.state.target as Double
         
         //Check heating set point against maximum threshold value.
         log.debug "Maximum temperature threshold set to: " + getMaxTempThreshold()
@@ -437,12 +440,11 @@ def poll() {
         	log.debug "Maximum temperature threshold exceeded. " + heatingSetpoint + " is higher than " + getMaxTempThreshold()
             sendEvent(name: 'maxtempthresholdbreach', value: heatingSetpoint, unit: "C", displayed: false)
         	//Force temperature threshold to Hive API.
-        	// {"nodes":[{"attributes":{"targetHeatTemperature":{"targetValue":11}}}]}    
-    		def args = [
-        		nodes: [	[attributes: [targetHeatTemperature: [targetValue: getMaxTempThreshold()]]]]
+        	def args = [
+        		target: getMaxTempThreshold()
             ]               
     
-    		parent.apiPUT("/nodes/${device.deviceNetworkId}", args)   
+    		parent.apiPOST("/nodes/heating/${device.deviceNetworkId}", args)   
             heatingSetpoint = String.format("%2.1f", getMaxTempThreshold())           
         }
         
@@ -455,42 +457,37 @@ def poll() {
         sendEvent(name: 'thermostatSetpoint', value: heatingSetpoint, unit: "C", state: "heat", displayed: false)
         sendEvent(name: 'thermostatFanMode', value: "off", displayed: false)
         
-        state.desiredHeatSetpoint = (int) Double.parseDouble(heatingSetpoint)
+        state.desiredHeatSetpoint = heatingSetpoint
         sendEvent("name":"desiredHeatSetpoint", "value": state.desiredHeatSetpoint, unit: "C", displayed: false)
         
         // determine hive operating mode
-        def activeHeatCoolMode = data.nodes.attributes.activeHeatCoolMode.reportedValue[0]
-        def activeScheduleLock = data.nodes.attributes.activeScheduleLock.targetValue[0]
-        
-        log.debug "activeHeatCoolMode: $activeHeatCoolMode"
-        log.debug "activeScheduleLock: $activeScheduleLock"
-        
-        def mode = 'auto'
+        def mode = currentDevice.state.mode.toLowerCase()
         
         //If Hive heating device is set to disabled, then force off if not already off.
-        if (settings.disableDevice != null && settings.disableDevice == true && activeHeatCoolMode != "OFF") {
+        if (settings.disableDevice != null && settings.disableDevice == true && mode != "off") {
         	def args = [
-        		nodes: [	[attributes: [activeHeatCoolMode: [targetValue: "OFF"], scheduleLockDuration: [targetValue: 0], activeScheduleLock: [targetValue: true]]]]
+        		mode: "OFF"
             ]
-        	parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+        	parent.apiPOST("/nodes/heating/${device.deviceNetworkId}", args)
             mode = 'off'
         } 
-        else if (activeHeatCoolMode == "OFF") {
-        	mode = 'off'
-            //statusMsg = statusMsg + " OFF"
-        }
-        else if (activeHeatCoolMode == "BOOST") {
+        else if (mode == "boost") {
         	mode = 'emergency heat'          
-            def boostTime = data.nodes.attributes.scheduleLockDuration.reportedValue[0]
+            def boostTime = currentDevice.state.boost
             boostLabel = "Restart\n$state.boostLength Min Boost"
             statusMsg = "Boost " + boostTime + "min"
             sendEvent("name":"boostTimeRemaining", "value": boostTime + " mins")
         }
-        else if (activeHeatCoolMode == "HEAT" && activeScheduleLock) {
+        else if (mode == "manual") {
         	mode = 'heat'
             statusMsg = statusMsg + " Manual"
         }
+        else if (mode == "off") {
+        	mode = 'off'
+            statusMsg = statusMsg + " Off"
+        }
         else {
+        	mode = 'auto'
         	statusMsg = statusMsg + " Schedule"
         }
         
@@ -501,11 +498,11 @@ def poll() {
         sendEvent(name: 'thermostatMode', value: mode) 
         
         // determine if Hive heating relay is on
-        def stateHeatingRelay = data.nodes.attributes.stateHeatingRelay.reportedValue[0]
+        def stateHeatingRelay = (heatingSetpoint as BigDecimal) > (temperature as BigDecimal)
         
         log.debug "stateHeatingRelay: $stateHeatingRelay"
         
-        if (stateHeatingRelay == "ON") {
+        if (stateHeatingRelay) {
         	sendEvent(name: 'thermostatOperatingState', value: "heating")
         }       
         else {
@@ -514,7 +511,8 @@ def poll() {
                
         sendEvent("name":"hiveHeating", "value": statusMsg, displayed: false)  
         sendEvent("name":"boostLabel", "value": boostLabel, displayed: false)
-    
+     }
+  }
 }
 
 def refresh() {
