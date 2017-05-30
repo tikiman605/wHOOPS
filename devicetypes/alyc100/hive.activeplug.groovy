@@ -12,6 +12,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  VERSION HISTORY
+ *
+ *  30.05.2017 v1.1 - Update for Hive Beekeeper API
  */
  
 metadata {
@@ -41,7 +44,11 @@ metadata {
         
         standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 1, height: 1) {
 			state("default", label:'refresh', action:"polling.poll", icon:"st.secondary.refresh-icon")
-		}        
+		}
+        
+        valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat") {
+			state "battery", label:'${currentValue}% battery', unit:""
+		}
 
 		main (["switch", "power"])
 		details (["switch", "power", "refresh"])
@@ -57,8 +64,8 @@ def parse(String description) {
 def on() {
 	log.debug "Executing 'on'"	     
     
-    def args = [nodes: [	[attributes: [state: [targetValue: "ON"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "ON"]              
+    def resp = parent.apiPOST("/nodes/activeplug/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Plug has reported it is offline, poll for more details
@@ -74,8 +81,8 @@ def on() {
 def off() {
 	log.debug "Executing 'off'"
 	    
-    def args = [nodes: [	[attributes: [state: [targetValue: "OFF"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "OFF"]                
+    def resp = parent.apiPOST("/nodes/activeplug/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Plug has reported it is offline, poll for more details
@@ -105,37 +112,38 @@ def changeSwitchState(newState) {
 def poll() {
 	log.debug "Executing 'poll'"    
     
-    def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
-	if (resp.status != 200) {
-		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
-		return []
-	}
-	data.nodes = resp.data.nodes
+	def resp = parent.apiGET('/products', '')
+      
+    // Loop through the results until we get the device we want to deal with
+    resp.data.each { currentD ->
+        if(currentD.id == device.deviceNetworkId) {
+            log.debug "Found device ${currentD.id} and name ${currentD.state.name}"
+                        
+            def state = currentD.state.status
+	    	def powerConsumption = currentD.props.powerConsumption
+    	    def presence = data.nodes.attributes.presence.reportedValue[0]
+	
+            log.debug "State: $state"
+            log.debug "Power Consumption: $powerConsumption"
+            log.debug "Presence: $presence"
 
-	def state = data.nodes.attributes.state.reportedValue[0] 
-	def powerConsumption = data.nodes.attributes.powerConsumption.reportedValue[0]
-    def presence = data.nodes.attributes.presence.reportedValue[0]
-    powerConsumption = String.format("%.0f", powerConsumption)
-
-	log.debug "State: $state"
-    log.debug "Power Consumption: $powerConsumption"
-    log.debug "Presence: $presence"
-    
-	if(presence == "ABSENT") {
-    	// Bulb is not present (i.e. turned off at the switch or removed)
-    	sendEvent(name: 'switch', value: "off")	        
-    } else {    	
-        sendEvent(name: 'switch', value: state.toLowerCase())
+            if(presence == "ABSENT") {
+                // Bulb is not present (i.e. turned off at the switch or removed)
+                sendEvent(name: 'switch', value: "off")	        
+            } else {    	
+                sendEvent(name: 'switch', value: state.toLowerCase())
+            }
+            
+            // Set power consumption
+            log.debug "Setting power"
+            if(state == "OFF") {
+                sendEvent(name: "power", value: 0, unit: "W")	
+            } else {
+                sendEvent(name: "power", value: powerConsumption, unit: "W")
+            }
+            log.debug "Power set"
+        }
     }
-    
-    // Set power consumption
-    log.debug "Setting power"
-    if(state == "OFF") {
-    	sendEvent(name: "power", value: 0, unit: "W")	
-    } else {
-        sendEvent(name: "power", value: powerConsumption, unit: "W")
-    }
-    log.debug "Power set"
 }
 
 def refresh() {
