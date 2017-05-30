@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light V1.0.4
+ *  Hive Active Light V1.1
  *
  *  Copyright 2016 Tom Beech
  *
@@ -14,8 +14,8 @@
  *
  * 23.11.16 - Made change to ensure that setting the brightness higher than 1 also sends the 'ON' command. Some smartapps turn bulbs on by setting the brightness to >0
  * 23.11.16 - Fixed setLevel so that it updates the devices switch state if it turned the light on or off
- * 24.11.16 - Added support for when a bulb is physically powered off
- * 24.11.16 - Fixed issue where setLevel was not working after change on 23.11.16
+ * 24.11.16 - Added support for when a bulb is physicall powered off
+ * 30.05.17 - Update for Hive Beekeeper API
  */
 
 metadata {
@@ -52,7 +52,7 @@ metadata {
         }
         
         main(["switch"])
-        details(["switch", "levelSliderControl", "colorTempSliderControl", "colorTemp", "colorName", "refresh"])
+        details(["switch", "levelSliderControl", "refresh"])
     }
 }
 
@@ -66,9 +66,8 @@ def setLevel(double value) {
     def val = String.format("%.0f", value)
     
     log.debug "Setting level to $val"
-    
-    def args = [nodes:[[attributes:[state:[targetValue:onOff],brightness:[targetValue:val],brightnessTransitionTime:[targetValue:"1"]]]]]
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+        
+    def resp = parent.apiPOST("/nodes/warmwhitelight/${device.deviceNetworkId}", [brightness: val])
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -76,13 +75,11 @@ def setLevel(double value) {
     } else { 
     
     	sendEvent(name: 'level', value: val)
-    	sendEvent(name: 'switch', value: onOff.toLowerCase())
     }
 }
 
 def on() {    
-    def args = [nodes: [	[attributes: [state: [targetValue: "ON"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def resp = parent.apiPOST("/nodes/warmwhitelight/${device.deviceNetworkId}", [status: "ON"])
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -94,8 +91,7 @@ def on() {
 
 def off() {
 
-    def args = [nodes: [	[attributes: [state: [targetValue: "OFF"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def resp = parent.apiPOST("/nodes/warmwhitelight/${device.deviceNetworkId}", [status: "OFF"])
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -114,30 +110,34 @@ def refresh() {
 }
 
 def poll() {
-	def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
-	if (resp.status != 200) {
-		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
-		return []
-	}
-	data.nodes = resp.data.nodes
+	def resp = parent.apiGET('/products', '')
+      
+    // Loop through the results until we get the device we want to deal with
+    resp.data.each { currentD ->
+        if(currentD.id == device.deviceNetworkId) {
+            log.debug "Found device ${currentD.id} and name ${currentD.state.name}"
+                        
+            def state = currentD.state.status
+            def brightness =  currentD.state.brightness
+            def presence = currentD.props.online
 
-	def state = data.nodes.attributes.state.reportedValue[0] 
-	def brightness =  data.nodes.attributes.brightness.reportedValue[0]
-    def presence = data.nodes.attributes.presence.reportedValue[0]
+            //brightness = String.format("%.0f", brightness)
+            //temperature = String.format("%.0f", temperature)
 
-	brightness = String.format("%.0f", brightness)
+            log.debug "State: $state"
+            log.debug "Brightness: $brightness"
+            log.debug "Presence: $presence"
 
-	log.debug "State: $state"
-    log.debug "Brightness: $brightness"
-    log.debug "Presence: $presence"
-    
-	if(presence == "ABSENT") {
-    	// Bulb is not present (i.e. turned off at the switch or removed)
-    	sendEvent(name: 'switch', value: "off")
-        log.debug "Set switch off as we are absent"
-    } else {    
-        sendEvent(name: 'switch', value: state.toLowerCase())        
-    }
-    
-    sendEvent(name: 'level', value: brightness)    
+            if(presence == "ABSENT") {
+                // Bulb is not present (i.e. turned off at the switch or removed)
+                sendEvent(name: 'switch', value: "off")	        
+            } else {    	
+                sendEvent(name: 'switch', value: state.toLowerCase())
+            }
+
+            sendEvent(name: 'level', value: brightness)
+            
+            return;
+        }
+    }    
 }
