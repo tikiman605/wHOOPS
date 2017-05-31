@@ -56,6 +56,7 @@
  *	28.05.2017
  *	v2.7 - Support for new Hive Beekeeper API - Authors: Tom Beech, Alex Lee Yuk Cheung
  *		 - Removed support for Hive Contact Sensor. Zigbee integration by Simon Green is preferred option.
+ *	v2.7b - Bug fix. Refresh bug prevents installation of Hive devices.
  */
 definition(
 		name: "Hive (Connect)",
@@ -134,7 +135,7 @@ def mainPage() {
 
 def headerSECTION() {
 	return paragraph (image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/10457773_334250273417145_3395772416845089626_n.png",
-                  "Hive (Connect)\nVersion: 2.7\nDate: 29052017(2300)")
+                  "Hive (Connect)\nVersion: 2.7b\nDate: 31052017(1630)")
 }
 
 def stateTokenPresent() {
@@ -899,7 +900,6 @@ def updateDevices() {
         selectors.add("${device.id}")
         //Heating
         if (device.type == "heating") {
-            log.debug "Found Device: ${device.state.name}"
             //Heating Control
             log.debug "Identified: ${device.state.name} Hive Heating"
             def value = "${device.state.name} Hive Heating"
@@ -1119,6 +1119,7 @@ def addColourBulb() {
         def childDevice = getChildDevice("${device}")
 
         if (!childDevice) {
+        	/*AWAITING DEVICE TO BE UPDATED FOR BEEKEEPER API
     		log.debug "Adding Hive Light Colour device ${device}: ${state.hiveBulbDevices[device]}"
 
         	def data = [
@@ -1132,6 +1133,7 @@ def addColourBulb() {
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveColourBulb[device]} with id: ${device}"
+            */
 		} else {
 			log.debug "found ${state.hiveColourBulb[device]} with id ${device} already exists"
 		}
@@ -1184,6 +1186,22 @@ def devicesList() {
 			return []
 		}
 	}
+}
+
+def getDeviceStatus(id) {
+	def retVal = []
+	def resp = apiGET("/products")
+	if (resp.status == 200) {
+		resp.data.eachWithIndex { currentDevice, i ->
+        	if(currentDevice.id == id) { 
+                retVal = resp.data[i]
+            }
+        }
+                
+	} else {
+		log.error("Non-200 from device list call. ${resp.status} ${resp.data}")
+	}
+    return retVal
 }
 
 def apiGET(path, body = [:]) {
