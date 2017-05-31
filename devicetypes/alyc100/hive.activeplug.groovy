@@ -110,18 +110,16 @@ def changeSwitchState(newState) {
 }
 
 def poll() {
-	log.debug "Executing 'poll'"    
-    
-	def resp = parent.apiGET('/products', '')
-      
-    // Loop through the results until we get the device we want to deal with
-    resp.data.each { currentD ->
-        if(currentD.id == device.deviceNetworkId) {
-            log.debug "Found device ${currentD.id} and name ${currentD.state.name}"
+    log.debug "Executing 'poll'"
+    def currentDevice = parent.getDeviceStatus(device.deviceNetworkId)
+    if (currentDevice == []) {
+	return []
+    }
+    log.debug "$device.name status: $currentDevice"
                         
-            def state = currentD.state.status
-	    	def powerConsumption = currentD.props.powerConsumption
-    	    def presence = data.nodes.attributes.presence.reportedValue[0]
+            def state = currentDevice.state.status
+	    	def powerConsumption = currentDevice.props.powerConsumption
+    	    def presence = currentDevice.props.presence
 	
             log.debug "State: $state"
             log.debug "Power Consumption: $powerConsumption"
@@ -142,8 +140,6 @@ def poll() {
                 sendEvent(name: "power", value: powerConsumption, unit: "W")
             }
             log.debug "Power set"
-        }
-    }
 }
 
 def refresh() {
