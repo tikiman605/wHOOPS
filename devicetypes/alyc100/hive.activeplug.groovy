@@ -1,5 +1,5 @@
 /**
- *  Hive Active Plug v1.0
+ *  Hive Active Plug v1.1b
  *
  *  Copyright 2016 Tom Beech
  *
@@ -15,6 +15,7 @@
  *  VERSION HISTORY
  *
  *  30.05.2017 v1.1 - Update for Hive Beekeeper API
+ *  31.05.2017 v1.1b - Bug fix. Refresh bug prevents installation of Hive devices.
  */
  
 metadata {
