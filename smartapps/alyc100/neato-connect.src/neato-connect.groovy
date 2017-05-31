@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	30-05-2017: 1.2g - Bug fix. Null botvac ID generated when no trigger smart schedule is set.
  *	23-03-2017: 1.2f - Bug fix. Neato Botvac null pointer when start delay is set.
  *	16-03-2017: 1.2e - Bug fix. Enforce single instance of app.
  *  16-03-2017: 1.2d - Bug fix. Schedule not reset automatically when clean starts in some scenarios.
@@ -993,7 +994,7 @@ def pollOn() {
             	}
                 //If no trigger has been set for smart schedule, execute clean when interval time has elapsed
         		if ((settings["ssScheduleTrigger#$botvacId"] == "none") && (state.smartSchedule[botvacId] || (!settings["ssEnableWarning#$botvacId"])) && (t > (settings["ssCleaningInterval#$botvacId"] * 86400000))) {
-        			startConditionalClean([data: [botvacId: botvacId]])
+        			startConditionalClean([botvacId: botvacId])
         		}
             }
             //Update force clean state and create notification when clean is due.
