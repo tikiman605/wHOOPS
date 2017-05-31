@@ -110,16 +110,16 @@ def refresh() {
 }
 
 def poll() {
-	def resp = parent.apiGET('/products', '')
-      
-    // Loop through the results until we get the device we want to deal with
-    resp.data.each { currentD ->
-        if(currentD.id == device.deviceNetworkId) {
-            log.debug "Found device ${currentD.id} and name ${currentD.state.name}"
+  log.debug "Executing 'poll'"
+	def currentDevice = parent.getDeviceStatus(device.deviceNetworkId)
+	if (currentDevice == []) {
+		return []
+	}
+    log.debug "$device.name status: $currentDevice"
                         
-            def state = currentD.state.status
-            def brightness =  currentD.state.brightness
-            def presence = currentD.props.online
+            def state = currentDevice.state.status
+            def brightness =  currentDevice.state.brightness
+            def presence = currentDevice.props.online
 
             //brightness = String.format("%.0f", brightness)
             //temperature = String.format("%.0f", temperature)
@@ -138,6 +138,4 @@ def poll() {
             sendEvent(name: 'level', value: brightness)
             
             return;
-        }
-    }    
 }
