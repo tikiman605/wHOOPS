@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light V1.1
+ *  Hive Active Light V1.1b
  *
  *  Copyright 2016 Tom Beech
  *
@@ -16,6 +16,7 @@
  * 23.11.16 - Fixed setLevel so that it updates the devices switch state if it turned the light on or off
  * 24.11.16 - Added support for when a bulb is physicall powered off
  * 30.05.17 - Update for Hive Beekeeper API
+ * 31.05.17 - Bug fix. Refresh bug prevents installation of Hive devices.
  */
 
 metadata {
