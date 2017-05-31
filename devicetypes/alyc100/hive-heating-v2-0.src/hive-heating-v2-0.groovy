@@ -36,6 +36,7 @@
  *
  *	30.05.2017
  *	v2.2 - Updated to use new Beekeeper API - Huge thanks to Tom Beech!
+ *	v2.2b - Bug fix. Refresh bug prevents installation of Hive devices.
  */
 preferences 
 {
@@ -411,13 +412,11 @@ def refreshBoostLabel() {
 
 def poll() {
 	log.debug "Executing 'poll'"
-	def resp = parent.apiGET("/products")
-	if (resp.status != 200) {
-		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
+	def currentDevice = parent.getDeviceStatus(device.deviceNetworkId)
+	if (currentDevice == []) {
 		return []
 	}
-    resp.data.each { currentDevice ->
-        if(currentDevice.id == device.deviceNetworkId) {    
+    log.debug "$device.name status: $currentDevice"
         //Construct status message
         def statusMsg = ""
         
@@ -511,8 +510,7 @@ def poll() {
                
         sendEvent("name":"hiveHeating", "value": statusMsg, displayed: false)  
         sendEvent("name":"boostLabel", "value": boostLabel, displayed: false)
-     }
-  }
+     
 }
 
 def refresh() {
