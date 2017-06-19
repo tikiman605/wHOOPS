@@ -136,7 +136,9 @@ def poll() {
                 sendEvent(name: 'switch', value: state.toLowerCase())
             }
 
-            sendEvent(name: 'level', value: brightness)
+	    if(brightness) {
+                sendEvent(name: 'level', value: brightness)
+	    }
             
             return;
 }
