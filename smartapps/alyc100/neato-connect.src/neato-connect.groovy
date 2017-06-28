@@ -1296,7 +1296,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2f\nDate: 23032017(1100)"
+    def text = "Neato (Connect)\nVersion: 1.2g\nDate: 30052017(1900)"
 }
 
 private def textCopyright() {
