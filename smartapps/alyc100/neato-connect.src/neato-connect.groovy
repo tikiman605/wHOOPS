@@ -1015,6 +1015,7 @@ def pollOn() {
 				if (t > (settings.forceCleanDelay * 86400000)) {
             		log.debug "Force clean activated as ${t/86400000} days has elapsed"
 					messageHandler(childDevice.displayName + " has not cleaned for " + settings.forceCleanDelay + " days. Forcing a clean.", true)
+                    resetSmartScheduleForDevice(botvacId)
                 	childDevice.on()
         		}
        	 	}
@@ -1129,6 +1130,7 @@ def startConditionalClean(data) {
          	if (settings.ssNotification) {
                 messageHandler("Neato SmartSchedule has started ${botvacDevice.displayName} cleaning.", false)
             }
+            resetSmartScheduleForDevice(botvacId)
             botvacDevice.on()
          }   	
      }
