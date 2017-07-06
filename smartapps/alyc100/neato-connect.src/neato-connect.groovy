@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	06-07-2017: 1.2h - Bug fix. Fix to smart schedule event handler typo preventing SHM mode changing. Fix to allow delayed start for multiple botvacs.
  *	30-05-2017: 1.2g - Bug fix. Null botvac ID generated when no trigger smart schedule is set.
  *	23-03-2017: 1.2f - Bug fix. Neato Botvac null pointer when start delay is set.
  *	16-03-2017: 1.2e - Bug fix. Enforce single instance of app.
@@ -845,7 +846,7 @@ def eventHandler(evt) {
         	messageHandler(msg, false)
 		}
      }
-	 else if (evt.value == loc) {
+	 else if (evt.value == "cleaning") {
      	unschedule(pollOn)
         unschedule(scheduleAutoDock)
         //Increase poll interval during cleaning
@@ -941,7 +942,7 @@ def smartScheduleHandler(evt) {
            	def delay = 0
             if (settings["ssStartDelay#$botvacId"]) delay = settings["ssStartDelay#$botvacId"] * 60
             if (delay > 0) {
-        		runIn(delay, startConditionalClean, [data: [botvacId: botvacId]])
+        		runIn(delay, startConditionalClean, [data: [botvacId: botvacId], overwrite: false])
             } else {
                	startConditionalClean([botvacId: botvacId])
             }
@@ -1014,8 +1015,7 @@ def pollOn() {
 				if (t > (settings.forceCleanDelay * 86400000)) {
             		log.debug "Force clean activated as ${t/86400000} days has elapsed"
 					messageHandler(childDevice.displayName + " has not cleaned for " + settings.forceCleanDelay + " days. Forcing a clean.", true)
-                	resetSmartScheduleForDevice(botvacId) 
-                    childDevice.on()
+                	childDevice.on()
         		}
        	 	}
         }
@@ -1129,7 +1129,6 @@ def startConditionalClean(data) {
          	if (settings.ssNotification) {
                 messageHandler("Neato SmartSchedule has started ${botvacDevice.displayName} cleaning.", false)
             }
-            resetSmartScheduleForDevice(botvacId) 
             botvacDevice.on()
          }   	
      }
@@ -1296,7 +1295,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2g\nDate: 30052017(1900)"
+    def text = "Neato (Connect)\nVersion: 1.2h\nDate: 06072017(1000)"
 }
 
 private def textCopyright() {
