@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	06-09-2017: 1.7 - Add support for D5 Extra Care. Add support for D7 Eco/Turbo.
  *	06-09-2017: 1.6 - Add support for D7 including Maps and Find Me.
  *
  *  31-03-2017: 1.5.1b - Add actuator capability for ACTION TILES compatability.
@@ -62,6 +63,7 @@ metadata {
         command "disableSchedule"
         command "resetSmartSchedule"
         command "toggleCleaningMode"
+        command "toggleNavigationMode"
         command "findMe"
 
 		attribute "network","string"
@@ -147,6 +149,13 @@ metadata {
             state("empty", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_logo.png")
 		}
         
+        standardTile("navigationMode", "device.navigationMode", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
+			state("standard", label:'Standard', action:"toggleNavigationMode", icon:"st.Appliances.appliances13")
+            state("extraCare", label:'Extra Care', action:"toggleNavigationMode", icon:"st.Outdoor.outdoor1")
+            state("findMe", label:'Find Me', action:"findMe", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_findme_icon.png")
+            state("empty", icon:"https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/neato_logo.png")
+		}
+        
         standardTile("switch", "device.switch", width: 2, height: 2, decoration: "flat") {
         	state("off", label: 'STOPPED', action: "switch.on", icon: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/laser-guided-navigation.png", backgroundColor: "#ffffff", nextState:"on")
 			state("on", label: 'CLEANING', action: "switch.off", icon: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/devicetypes/alyc100/best-pet-hair-cleaning.png", backgroundColor: "#79b821", nextState:"off")
@@ -156,7 +165,7 @@ metadata {
         htmlTile(name:"mapHTML", action: "getMapHTML", width: 6, height: 9, whiteList: ["neatorobotics.s3.amazonaws.com", "raw.githubusercontent.com"])
         
 		main("switch")
-		details(["clean","smartScheduleStatusMessage", "forceCleanStatusMessage", "status", "battery", "charging", "bin", "dockStatus", "dockHasBeenSeen", "cleaningMode", "scheduled", "resetSmartSchedule", "network", "refresh", "mapHTML"])
+		details(["clean","smartScheduleStatusMessage", "forceCleanStatusMessage", "status", "battery", "charging", "bin", "dockStatus", "dockHasBeenSeen", "cleaningMode", "navigationMode", "scheduled", "resetSmartSchedule", "network", "refresh", "mapHTML"])
 	}
 }
 
@@ -181,6 +190,10 @@ def initialize() {
     	state.startCleaningMode = "turbo"
         sendEvent(name: 'cleaningMode', value: state.startCleaningMode, displayed: true)
     }
+    if (state.startNavigationMode == null) {
+    	state.startNavigationMode = "standard"
+        sendEvent(name: 'navigationMode', value: state.startNavigationMode, displayed: true)
+    }
 	poll()
 }
 
@@ -192,16 +205,18 @@ def on() {
     }
     else if (currentState != 'error') {
     	def modeParam = 1
+        def navParam = 1
         if (isTurboCleanMode()) modeParam = 2
+        if (isExtraCareNavigationMode()) navParam = 2
         switch (state.houseCleaning) {
             case "basic-1":
                	nucleoPOST("/messages", '{"reqId":"1", "cmd":"startCleaning", "params":{"category": 2, "mode": ' + modeParam + ', "modifier": 2}}')
 			break;
         	case "basic-2":
-            	nucleoPOST("/messages", '{"reqId":"1", "cmd":"startCleaning", "params":{"category": 2, "mode": ' + modeParam + ', "modifier": 2, "navigationMode": 2}}')
+            	nucleoPOST("/messages", '{"reqId":"1", "cmd":"startCleaning", "params":{"category": 2, "mode": ' + modeParam + ', "modifier": 2, "navigationMode": ' + navParam + '}}')
             break;
 			case "minimal-2":
-				nucleoPOST("/messages", '{"reqId":"1", "cmd":"startCleaning", "params":{"category": 2, "navigationMode": 2}}')
+				nucleoPOST("/messages", '{"reqId":"1", "cmd":"startCleaning", "params":{"category": 2, "navigationMode": ' + navParam + '}}')
 			break;
         }
     }
@@ -261,6 +276,17 @@ def toggleCleaningMode() {
     	state.startCleaningMode = "turbo"
     }
     sendEvent(name: 'cleaningMode', value: state.startCleaningMode, displayed: true)
+    runIn(2, refresh)
+}
+
+def toggleNavigationMode() {
+	log.debug "Executing 'toggleNavigationMode'"
+	if (state.startNavigationMode != null && state.startNavigationMode == "standard") { 
+    	state.startNavigationMode = "extraCare"
+    } else {
+    	state.startNavigationMode = "standard"
+    }
+    sendEvent(name: 'navigationMode', value: state.startNavigationMode, displayed: true)
     runIn(2, refresh)
 }
 
@@ -435,10 +461,17 @@ def poll() {
                 }
             }
         }
-        if (state.modelName == "BotVacD5Connected" || state.modelName == "BotVacD7Connected") {
+        
+        //Tile configuration for models
+        if (state.modelName == "BotVacD7Connected") {
+        	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
+        } else if (state.modelName == "BotVacD5Connected") {
         	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
         } else if (state.modelName == "BotVacD3Connected") {
         	sendEvent(name: 'cleaningMode', value: "empty", displayed: false)
+        } else {
+        	//Neato Botvac Connected
+            sendEvent(name: 'navigationMode', value: "empty", displayed: false)
         }
         
         if (result.containsKey("details")) {
@@ -524,6 +557,15 @@ def isTurboCleanMode() {
     	result = false
     }
     log.debug "$device.displayName cleaning mode: $state.startCleaningMode"
+    result
+}
+
+def isExtraCareNavigationMode() {
+	def result = false
+    if (state.startNavigationMode != null && state.startNavigationMode == "extraCare") {
+    	result = true
+    }
+    log.debug "$device.displayName navigation mode: $state.startNavigationMode"
     result
 }
 
