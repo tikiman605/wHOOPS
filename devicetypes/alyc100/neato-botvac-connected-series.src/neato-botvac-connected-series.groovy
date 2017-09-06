@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	06-09-2017: 1.7a - Fix support for D7 Eco/Turbo.
  *	06-09-2017: 1.7 - Add support for D5 Extra Care. Add support for D7 Eco/Turbo.
  *	06-09-2017: 1.6 - Add support for D7 including Maps and Find Me.
  *
@@ -464,10 +465,12 @@ def poll() {
         
         //Tile configuration for models
         if (state.modelName == "BotVacD7Connected") {
-        	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
+        	//Neato Botvac D7
         } else if (state.modelName == "BotVacD5Connected") {
+        	//Neato Botvac D5
         	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
         } else if (state.modelName == "BotVacD3Connected") {
+        	//Neato Botvac D3
         	sendEvent(name: 'cleaningMode', value: "empty", displayed: false)
         } else {
         	//Neato Botvac Connected
