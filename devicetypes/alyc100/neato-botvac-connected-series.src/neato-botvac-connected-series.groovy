@@ -13,6 +13,8 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	06-09-2017: 1.6 - Add support for D7 including Maps and Find Me.
+ *
  *  31-03-2017: 1.5.1b - Add actuator capability for ACTION TILES compatability.
  *	24-01-2017: 1.5.1 - Sq ft display on maps and stats.
  *
@@ -433,7 +435,7 @@ def poll() {
                 }
             }
         }
-        if (state.modelName == "BotVacD5Connected") {
+        if (state.modelName == "BotVacD5Connected" || state.modelName == "BotVacD7Connected") {
         	sendEvent(name: 'cleaningMode', value: "findMe", displayed: false)
         } else if (state.modelName == "BotVacD3Connected") {
         	sendEvent(name: 'cleaningMode', value: "empty", displayed: false)
@@ -578,7 +580,7 @@ def getMapHTML() {
 		if (parent.getTimeZone()) { df.setTimeZone(location.timeZone) }
     	def resp
         def hData = ""
-        if (state.firmware.startsWith("2.2")) {
+        if ((state.modelName == "BotVacD7Connected") || (state.firmware.startsWith("2.2"))) {
         	resp = parent.beehiveGET("/users/me/robots/${device.deviceNetworkId.tokenize("|")[0]}/maps")
             if (resp.status == 403) {
             	hData = """
@@ -733,8 +735,7 @@ def getMapHTML() {
 				<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT"/>
 				<meta http-equiv="pragma" content="no-cache"/>
 				<meta name="viewport" content="width = device-width, user-scalable=no, initial-scale=1.0">
-
-				<link rel="stylesheet prefetch" href="${getCssData()}"/>
+                <link rel="stylesheet prefetch" href="${getCssData()}"/>
 			</head>
 			<body>
                 ${hData}
@@ -745,63 +746,6 @@ def getMapHTML() {
 	}
 	catch (ex) {
 		log.error "getMapHTML Exception:", ex
-	}
-}
-
-def getCssData() {
-	def cssData = null
-	def htmlInfo
-	state.cssData = null
-
-	if(htmlInfo?.cssUrl && htmlInfo?.cssVer) {
-		if(state?.cssData) {
-			if (state?.cssVer?.toInteger() == htmlInfo?.cssVer?.toInteger()) {
-				//LogAction("getCssData: CSS Data is Current | Loading Data from State...")
-				cssData = state?.cssData
-			} else if (state?.cssVer?.toInteger() < htmlInfo?.cssVer?.toInteger()) {
-				//LogAction("getCssData: CSS Data is Outdated | Loading Data from Source...")
-				cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
-				state.cssData = cssData
-				state?.cssVer = htmlInfo?.cssVer
-			}
-		} else {
-			//LogAction("getCssData: CSS Data is Missing | Loading Data from Source...")
-			cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
-			state?.cssData = cssData
-			state?.cssVer = htmlInfo?.cssVer
-		}
-	} else {
-		//LogAction("getCssData: No Stored CSS Info Data Found for Device... Loading for Static URL...")
-		cssData = getFileBase64(cssUrl(), "text", "css")
-	}
-	return cssData
-}
-
-def getFileBase64(url, preType, fileType) {
-	try {
-		def params = [
-			uri: url,
-			contentType: '$preType/$fileType'
-		]
-		httpGet(params) { resp ->
-			if(resp.data) {
-				def respData = resp?.data
-				ByteArrayOutputStream bos = new ByteArrayOutputStream()
-				int len
-				int size = 4096
-				byte[] buf = new byte[size]
-				while ((len = respData.read(buf, 0, size)) != -1)
-					bos.write(buf, 0, len)
-				buf = bos.toByteArray()
-				//LogAction("buf: $buf")
-				String s = buf?.encodeBase64()
-				//LogAction("resp: ${s}")
-				return s ? "data:${preType}/${fileType};base64,${s.toString()}" : null
-			}
-		}
-	}
-	catch (ex) {
-		log.error "getFileBase64 Exception:", ex
 	}
 }
 
@@ -825,6 +769,57 @@ def convertSecondsToTime(seconds) {
     def minuteString = (minute < 10) ? "0$minute" : "$minute"
     
 	return "${hourString}:${minuteString}"
+}
+
+def getCssData() {
+	def cssData = null
+	def htmlInfo
+	state.cssData = null
+
+	if(htmlInfo?.cssUrl && htmlInfo?.cssVer) {
+		if(state?.cssData) {
+			if (state?.cssVer?.toInteger() == htmlInfo?.cssVer?.toInteger()) {
+				cssData = state?.cssData
+			} else if (state?.cssVer?.toInteger() < htmlInfo?.cssVer?.toInteger()) {
+				cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
+				state.cssData = cssData
+				state?.cssVer = htmlInfo?.cssVer
+			}
+		} else {
+			cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
+			state?.cssData = cssData
+			state?.cssVer = htmlInfo?.cssVer
+		}
+	} else {
+		cssData = getFileBase64(cssUrl(), "text", "css")
+	}
+	return cssData
+}
+
+def getFileBase64(url, preType, fileType) {
+	try {
+		def params = [
+			uri: url,
+			contentType: '$preType/$fileType'
+		]
+		httpGet(params) { resp ->
+			if(resp.data) {
+				def respData = resp?.data
+				ByteArrayOutputStream bos = new ByteArrayOutputStream()
+				int len
+				int size = 4096
+				byte[] buf = new byte[size]
+				while ((len = respData.read(buf, 0, size)) != -1)
+					bos.write(buf, 0, len)
+				buf = bos.toByteArray()
+				String s = buf?.encodeBase64()
+				return s ? "data:${preType}/${fileType};base64,${s.toString()}" : null
+			}
+		}
+	}
+	catch (ex) {
+		log.error "getFileBase64 Exception:", ex
+	}
 }
 
 def cssUrl()	 { return "https://raw.githubusercontent.com/desertblade/ST-HTMLTile-Framework/master/css/smartthings.css" }
