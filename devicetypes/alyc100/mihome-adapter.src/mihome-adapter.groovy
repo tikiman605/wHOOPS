@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY - FORMER VERSION NOW RENAMED AS ADAPTER PLUS
+ *	17.09.2017: 2.0a - Disable setting device to Offline on unexpected API response.
  *	23.11.2016:	2.0 - Remove extra logging.
  *
  *	10.11.2016:	2.0 BETA Release 3 - Merge Light Switch and Adapter functionality into one device type.
@@ -87,7 +88,7 @@ def poll() {
     def resp = parent.apiGET("/subdevices/show?params=" + URLEncoder.encode(new groovy.json.JsonBuilder(body).toString()))
 	if (resp.status != 200) {
 		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
-        sendEvent(name: "switch", value: "offline", descriptionText: "The device is offline")
+        //sendEvent(name: "switch", value: "offline", descriptionText: "The device is offline")
 		return []
 	}
     def power_state = resp.data.data.power_state

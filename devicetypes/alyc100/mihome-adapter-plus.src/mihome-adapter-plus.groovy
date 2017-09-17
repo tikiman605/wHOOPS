@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	17.09.2017: 2.0.1a - Disable setting device to Offline on unexpected API response.
  *	12.12.2017: 2.0.1 - Resolve Android chart display issue.
  *  23.11.2016:	2.0 - Remove extra logging.
  *
@@ -109,7 +110,7 @@ def poll() {
     def resp = parent.apiGET("/subdevices/show?params=" + URLEncoder.encode(new groovy.json.JsonBuilder([id: device.deviceNetworkId.toInteger()]).toString()))
 	if (resp.status != 200) {
 		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
-        sendEvent(name: "switch", value: "offline", descriptionText: "The device is offline")
+        //sendEvent(name: "switch", value: "offline", descriptionText: "The device is offline")
 		return []
 	}
     def power_state = resp.data.data.power_state
@@ -247,6 +248,7 @@ def getChartHTML() {
 	}
 }
 
+
 def getCssData() {
 	def cssData = null
 	def htmlInfo
@@ -255,22 +257,18 @@ def getCssData() {
 	if(htmlInfo?.cssUrl && htmlInfo?.cssVer) {
 		if(state?.cssData) {
 			if (state?.cssVer?.toInteger() == htmlInfo?.cssVer?.toInteger()) {
-				//LogAction("getCssData: CSS Data is Current | Loading Data from State...")
 				cssData = state?.cssData
 			} else if (state?.cssVer?.toInteger() < htmlInfo?.cssVer?.toInteger()) {
-				//LogAction("getCssData: CSS Data is Outdated | Loading Data from Source...")
 				cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
 				state.cssData = cssData
 				state?.cssVer = htmlInfo?.cssVer
 			}
 		} else {
-			//LogAction("getCssData: CSS Data is Missing | Loading Data from Source...")
 			cssData = getFileBase64(htmlInfo.cssUrl, "text", "css")
 			state?.cssData = cssData
 			state?.cssVer = htmlInfo?.cssVer
 		}
 	} else {
-		//LogAction("getCssData: No Stored CSS Info Data Found for Device... Loading for Static URL...")
 		cssData = getFileBase64(cssUrl(), "text", "css")
 	}
 	return cssData
@@ -292,9 +290,7 @@ def getFileBase64(url, preType, fileType) {
 				while ((len = respData.read(buf, 0, size)) != -1)
 					bos.write(buf, 0, len)
 				buf = bos.toByteArray()
-				//LogAction("buf: $buf")
 				String s = buf?.encodeBase64()
-				//LogAction("resp: ${s}")
 				return s ? "data:${preType}/${fileType};base64,${s.toString()}" : null
 			}
 		}
