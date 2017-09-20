@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	20-09-2017:	1.2.1 BETA - Allow option for a SmartSchedule 'day' be measured from midnight rather than last cleaning time.
  *	06-07-2017: 1.2h - Bug fix. Fix to smart schedule event handler typo preventing SHM mode changing. Fix to allow delayed start for multiple botvacs.
  *	30-05-2017: 1.2g - Bug fix. Null botvac ID generated when no trigger smart schedule is set.
  *	23-03-2017: 1.2f - Bug fix. Neato Botvac null pointer when start delay is set.
@@ -199,6 +200,10 @@ def smartSchedulePAGE(params) {
         			//SmartSchedule configuration options.
                 	//Configure regular cleaning interval in days
                 	input ("ssCleaningInterval#$botvacId", "number", title: "Set your ideal cleaning interval in days", required: true, defaultValue: 3)
+                    
+                    //Define when day should be mesaured
+                    paragraph "[BETA] If enabled then a day is calculated from midnight before the last clean."
+                    input ("ssIntervalFromMidnight#$botvacId", "bool", title: "Measure day interval from midnight before last clean?", required: false, defaultValue: false)
                     
                     //Define smart schedule trigger
                     input("ssScheduleTrigger#$botvacId", "enum", title: "How do you want to trigger the schedule?",  multiple: false, required: true, submitOnChange: true, options: ["mode": "Away Modes", "switch": "Switches", "presence": "Presence", "none": "No Triggers"])
@@ -565,13 +570,19 @@ def initialize() {
         }
         //initialise force clean flags
         if (settings.forceClean) {
-        	if (state.forceCleanNotificationSent[childDevice.deviceNetworkId] == null) state.forceCleanNotificationSent[childDevice.deviceNetworkId] = false
+        	if (state.forceCleanNotificationSent[botvacId] == null) state.forceCleanNotificationSent[botvacId] = false
         }
         //subscribe to events for smartSchedule
     	if (settings["smartScheduleEnabled#$botvacId"]) {
         	//Initialize flags for Smart Schedule
-            if (state.smartSchedule[childDevice.deviceNetworkId] == null) state.smartSchedule[childDevice.deviceNetworkId] = false
-        	if (state.lastClean[childDevice.deviceNetworkId] == null) state.lastClean[childDevice.deviceNetworkId] = now()
+            if (state.smartSchedule[botvacId] == null) state.smartSchedule[botvacId] = false
+        	if (state.lastClean[botvacId] == null) {
+            	if (settings["ssIntervalFromMidnight#$botvacId"]) {
+                	state.lastClean[botvacId] = (new Date()).clearTime().getTime()
+                } else {
+                	state.lastClean[botvacId] = now()
+                }
+            }
             //Trigger has changed so reset all smart schedule flags
             if ((state.lastTriggerMode.containsKey(botvacId)) && (state.lastTriggerMode[botvacId] != settings["ssScheduleTrigger#$botvacId"])) {
             	log.debug "Smart schedule trigger mode has changed. Resetting smart schedule flag."
@@ -853,7 +864,11 @@ def eventHandler(evt) {
         schedule("0 0/1 * * * ?", pollOn)
         //Record last cleaning time for device
         log.debug "$evt.device.deviceNetworkId has started cleaning"
-        state.lastClean[evt.device.deviceNetworkId] = now()
+        if (settings["ssIntervalFromMidnight#$evt.device.deviceNetworkId"]) {
+        	state.lastClean[evt.device.deviceNetworkId] = (new Date()).clearTime().getTime()
+        } else {
+        	state.lastClean[evt.device.deviceNetworkId] = now()
+        }
         state.botvacOnTimeMarker[evt.device.deviceNetworkId] = now()
         log.debug "$evt.device.deviceNetworkId has started cleaning"
         if (settings.forceClean) { state.forceCleanNotificationSent[evt.device.deviceNetworkId] = false }
@@ -1080,6 +1095,11 @@ def resetSmartScheduleForDevice(botvacId) {
 	if (settings["smartScheduleEnabled#$botvacId"] && state.lastClean != null && state.smartSchedule != null) {
 		//Reset last clean date to current time
    		state.lastClean[botvacId] = now()
+        if (settings["ssIntervalFromMidnight#$botvacId"]) {
+        	state.lastClean[botvacId] = (new Date()).clearTime().getTime()
+        } else {
+            state.lastClean[botvacId] = now()
+        }
    		//Remove existing SmartSchedule flag
     	state.smartSchedule[botvacId] = false
     }
@@ -1297,7 +1317,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2h\nDate: 06072017(1000)"
+    def text = "Neato (Connect)\nVersion: 1.2.1 BETA\nDate: 20092017(2330)"
 }
 
 private def textCopyright() {
