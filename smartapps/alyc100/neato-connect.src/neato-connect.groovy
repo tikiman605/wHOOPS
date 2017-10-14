@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  VERSION HISTORY
+ *	14-10-2017:	1.2.1b - Fix to setting Smart Home Monitor.
  *	20-09-2017:	1.2.1 BETA - Allow option for a SmartSchedule 'day' be measured from midnight rather than last cleaning time.
  *	06-07-2017: 1.2h - Bug fix. Fix to smart schedule event handler typo preventing SHM mode changing. Fix to allow delayed start for multiple botvacs.
  *	30-05-2017: 1.2g - Bug fix. Null botvac ID generated when no trigger smart schedule is set.
@@ -1034,11 +1035,10 @@ def pollOn() {
                 	childDevice.on()
         		}
        	 	}
-        }
-        
-        //Search for active cleaners
-        if (childDevice.latestState('status').stringValue == 'cleaning') {
-        	activeCleaners = true
+        } 
+        if (childDevice.currentStatus == "cleaning") {
+        	//Search for active cleaners
+       		activeCleaners = true
         }
 	}
     
@@ -1123,7 +1123,7 @@ def setSHMToStay() {
 			log.trace "Smart Home Monitor is set to stay"
 			sendLocationEvent(name: "alarmSystemStatus", value: "stay")
 			state.autoSHMchange = "y"
-        	messageHandler("Smart Home Monitor is set to stay as ${evt.displayName} is on", true)
+        	messageHandler("Smart Home Monitor is set to stay as a Neato Botvac is cleaning", true)
     	}
     }
 }
@@ -1317,7 +1317,7 @@ def getApiEndpoint()         { return "https://apps.neatorobotics.com" }
 def getSmartThingsClientId() { return appSettings.clientId }
 def beehiveURL(path = '/') 	 { return "https://beehive.neatocloud.com${path}" }
 private def textVersion() {
-    def text = "Neato (Connect)\nVersion: 1.2.1 BETA\nDate: 20092017(2330)"
+    def text = "Neato (Connect)\nVersion: 1.2.1b\nDate: 14102017(1630)"
 }
 
 private def textCopyright() {
