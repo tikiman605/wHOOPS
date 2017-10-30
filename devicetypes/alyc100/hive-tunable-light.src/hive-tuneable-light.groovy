@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light Tunable V1.0.3b
+ *  Hive Active Light Tuneable
  *
  *  Copyright 2016 Tom Beech
  *
@@ -20,7 +20,7 @@
  */
 
 metadata {
-    definition (name: "Hive Active Light Tunable V1.0", namespace: "ibeech", author: "Tom Beech") {
+    definition (name: "Hive Active Light Tuneable", namespace: "alyc100", author: "Tom Beech") {
         capability "Polling"
         capability "Switch"
         capability "Switch Level"
