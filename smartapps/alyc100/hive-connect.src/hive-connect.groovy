@@ -57,6 +57,9 @@
  *	v2.7 - Support for new Hive Beekeeper API - Authors: Tom Beech, Alex Lee Yuk Cheung
  *		 - Removed support for Hive Contact Sensor. Zigbee integration by Simon Green is preferred option.
  *	v2.7b - Bug fix. Refresh bug prevents installation of Hive devices.
+ *
+ *	30.10.2017
+ *	v2.8 - Support for Hive Active Light Colour Tuneable device.
  */
 definition(
 		name: "Hive (Connect)",
@@ -1119,7 +1122,6 @@ def addColourBulb() {
         def childDevice = getChildDevice("${device}")
 
         if (!childDevice) {
-        	/*AWAITING DEVICE TO BE UPDATED FOR BEEKEEPER API
     		log.debug "Adding Hive Light Colour device ${device}: ${state.hiveBulbDevices[device]}"
 
         	def data = [
@@ -1129,11 +1131,11 @@ def addColourBulb() {
             
             log.debug data
             
-            childDevice = addChildDevice("ibeech", "Hive Active Colour Light V2.0", "$device", null, data)
+            childDevice = addChildDevice("alyc100", "Hive Active Light Colour Tunable V1.0", "$device", null, data)
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveColourBulb[device]} with id: ${device}"
-            */
+            
 		} else {
 			log.debug "found ${state.hiveColourBulb[device]} with id ${device} already exists"
 		}
