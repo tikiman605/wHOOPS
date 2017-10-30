@@ -16,11 +16,14 @@
  * 23.11.16 - Fixed setLevel so that it updates the devices switch state if it turned the light on or off
  * 24.11.16 - Added support for when a bulb is physicall powered off
  * 30.05.17 - Update for Hive Beekeeper API
- * 31.05.17 - Bug fix. Refresh bug prevents installation of Hive devices.
+ * 31.05.17 - Bug fix. Refresh bug prevents installation of Hive devices
+ 
+ * 30.10.2017
+ * v3.0 - Version refactor to reflect BeeKeeper API update.
  */
 
 metadata {
-    definition (name: "Hive Active Light V1.0", namespace: "ibeech", author: "Tom Beech") {
+    definition (name: "Hive Active Light", namespace: "alyc100", author: "Tom Beech") {
         capability "Polling"
         capability "Switch"
         capability "Switch Level"
