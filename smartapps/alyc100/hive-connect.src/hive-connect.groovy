@@ -59,7 +59,7 @@
  *	v2.7b - Bug fix. Refresh bug prevents installation of Hive devices.
  *
  *	30.10.2017
- *	v2.8 - Support for Hive Active Light Colour Tuneable device.
+ *	v3.0 - Support for Hive Active Light Colour Tuneable device.
  */
 definition(
 		name: "Hive (Connect)",
@@ -138,7 +138,7 @@ def mainPage() {
 
 def headerSECTION() {
 	return paragraph (image: "https://raw.githubusercontent.com/alyc100/SmartThingsPublic/master/smartapps/alyc100/10457773_334250273417145_3395772416845089626_n.png",
-                  "Hive (Connect)\nVersion: 2.8\nDate: 30102017(1630)")
+                  "Hive (Connect)\nVersion: 3.0\nDate: 30102017(1630)")
 }
 
 def stateTokenPresent() {
@@ -1023,7 +1023,7 @@ def addHeating() {
                 name: state.hiveHeatingDevices[device],
 				label: state.hiveHeatingDevices[device],
 			]
-            childDevice = addChildDevice(app.namespace, "Hive Heating V2.0", "$device", null, data)
+            childDevice = addChildDevice(app.namespace, "Hive Heating", "$device", null, data)
             childDevice.refresh()
 
 			log.debug "Created ${state.hiveHeatingDevices[device]} with id: ${device}"
@@ -1048,7 +1048,7 @@ def addHotWater() {
                 name: state.hiveHotWaterDevices[device],
 				label: state.hiveHotWaterDevices[device],
 			]
-            childDevice = addChildDevice(app.namespace, "Hive Hot Water V2.0", "$device", null, data)
+            childDevice = addChildDevice(app.namespace, "Hive Hot Water", "$device", null, data)
             childDevice.refresh()
 			log.debug "Created ${state.hiveHotWaterDevices[device]} with id: ${device}"
 		} else {
@@ -1075,7 +1075,7 @@ def addBulb() {
             
             log.debug data
             
-            childDevice = addChildDevice("ibeech", "Hive Active Light V1.0", "$device", null, data)
+            childDevice = addChildDevice("ibeech", "Hive Active Light", "$device", null, data)
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveBulbDevices[device]} with id: ${device}"
@@ -1103,7 +1103,7 @@ def addTunableBulb() {
             
             log.debug data
             
-            childDevice = addChildDevice("ibeech", "Hive Active Light Tunable V1.0", "$device", null, data)
+            childDevice = addChildDevice("ibeech", "Hive Active Light Tunable", "$device", null, data)
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveTunableBulbDevices[device]} with id: ${device}"
@@ -1131,7 +1131,7 @@ def addColourBulb() {
             
             log.debug data
             
-            childDevice = addChildDevice("alyc100", "Hive Active Light Colour Tunable V1.0", "$device", null, data)
+            childDevice = addChildDevice("alyc100", "Hive Active Light Colour Tunable", "$device", null, data)
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveColourBulb[device]} with id: ${device}"
@@ -1160,7 +1160,7 @@ def addActivePlug() {
             
             log.debug data
             
-            childDevice = addChildDevice("ibeech", "Hive Active Plug V1.0", "$device", null, data)
+            childDevice = addChildDevice("ibeech", "Hive Active Plug", "$device", null, data)
             childDevice.refresh()
             
 			log.debug "Created ${state.hiveActivePlugDevices[device]} with id: ${device}"
