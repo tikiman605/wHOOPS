@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light Colour Tunable V1.0.3b
+ *  Hive Active Light Colour Tunable V1.0
  *
  *  Copyright 2016 Tom Beech / Alex Lee Yuk Cheung
  *
