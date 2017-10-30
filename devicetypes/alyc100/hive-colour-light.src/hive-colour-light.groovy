@@ -16,7 +16,7 @@
  */
 
 metadata {
-    definition (name: "Hive Active Light Colour Tunable", namespace: "alyc100", author: "Alex Lee Yuk Cheung") {
+    definition (name: "Hive Active Light Colour Tuneable", namespace: "alyc100", author: "Tom Beech") {
         capability "Polling"
         capability "Switch"
         capability "Switch Level"
