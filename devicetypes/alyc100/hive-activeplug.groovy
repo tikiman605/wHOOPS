@@ -16,10 +16,11 @@
  *
  *  30.05.2017 v1.1 - Update for Hive Beekeeper API
  *  31.05.2017 v1.1b - Bug fix. Refresh bug prevents installation of Hive devices.
+ *  30.10.2017 v3.0 Update Hive Colour Bulb device to support new Hive Beekeeper API
  */
  
 metadata {
-	definition (name: "Hive Active Plug v1.0", namespace: "ibeech", author: "Tom Beech") {
+	definition (name: "Hive Active Plug", namespace: "alyc100", author: "Tom Beech") {
 		capability "Switch"
         capability "Power Meter"
         capability "Refresh"
