@@ -1,7 +1,7 @@
 /**
- *  Hive Active Colour Light V1.0
+ *  Hive Active Light Colour Tunable V1.0
  *
- *  Copyright 2016 Tom Beech
+ *  Copyright 2016 Tom Beech / Alex Lee Yuk Cheung
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -12,15 +12,16 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 30.10.2017 - v1.0 Update Hive Colour Bulb device to support new Hive Beekeeper API
  */
 
 metadata {
-    definition (name: "Hive Active Colour Light V2.0", namespace: "ibeech", author: "Tom Beech") {
+    definition (name: "Hive Active Light Colour Tunable V1.0", namespace: "alyc100", author: "Alex Lee Yuk Cheung") {
         capability "Polling"
         capability "Switch"
         capability "Switch Level"
-        capability "Refresh"        
-		capability "Color Control"
+        capability "Refresh"
+        capability "Color Control"
 		capability "Color Temperature"
 		capability "Actuator"
         capability "Sensor"
@@ -66,9 +67,9 @@ def parse(value) {
 
 def setColorTemperature(value) {
 	log.debug "Executing 'setColorTemperature' to ${value}"
-            
-    def args = [nodes: [[attributes: [colourTemperature: [targetValue: value], colourTemperatureTransitionTime: [targetValue: "1"], colourMode: [targetValue: "TUNABLE"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    
+    def args = ["colourMode":"WHITE","colourTemperature":value]            
+    def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
 
 	if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -76,7 +77,7 @@ def setColorTemperature(value) {
     } else { 
     	sendEvent(name: "colorTemperature", value: value)    	
         sendEvent(name: "hue", value: 0)
-    	sendEvent(name: "saturation", value: 0)
+    	sendEvent(name: "saturation", value: 0)	
     }
 }
 
@@ -91,8 +92,8 @@ def setLevel(double value) {
     	onOff = "OFF"
     }
         
-    def args = [nodes:[[attributes:[state:[targetValue:onOff],brightness:[targetValue:val],brightnessTransitionTime:[targetValue:"1"]]]]]    
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: onOff, brightness: val]    
+    def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
     
 	if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -143,14 +144,14 @@ def setColor(value) {
     log.debug "Sat: ${sat}"
     
     // SEND HTTP COMMAND TO SET COLOUR
-    def args = ["nodes":[["attributes":["hsvHue":["targetValue":hue],"hsvSaturation":["targetValue":sat]/*,"hsvValue":["targetValue":100]*/,"colourMode":["targetValue":"COLOUR"]]]]]
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = ["colourMode":"COLOUR","hue":hue, "saturation": sat, "value": value3 ]     
+    def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
     
 	if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
         poll()
     } else {    
-        if(value.hex) sendEvent(name: "color", value: value.hex)
+    	if(value.hex) sendEvent(name: "color", value: value.hex)
         if(value.hue) sendEvent(name: "hue", value: value.hue)
         if(value.saturation) sendEvent(name: "saturation", value: value.saturation)
         if(value.switch) sendEvent(name: "switch", value: value.switch)
@@ -158,8 +159,8 @@ def setColor(value) {
 }
 
 def on() {    
-    def args = [nodes: [	[attributes: [state: [targetValue: "ON"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "ON"]             
+    def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -171,8 +172,8 @@ def on() {
 
 def off() {
 
-    def args = [nodes: [	[attributes: [state: [targetValue: "OFF"]]]]]                
-    def resp = parent.apiPUT("/nodes/${device.deviceNetworkId}", args)
+    def args = [status: "OFF"]     
+    def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
     
     if(resp.status == 404) {
 		// Bulb has reported it is offline, poll for more details
@@ -191,42 +192,43 @@ def refresh() {
 }
 
 def poll() {
-	def resp = parent.apiGET("/nodes/${device.deviceNetworkId}")
-	if (resp.status != 200) {
-		log.error("Unexpected result in poll(): [${resp.status}] ${resp.data}")
+   log.debug "Executing 'poll'"
+	def currentDevice = parent.getDeviceStatus(device.deviceNetworkId)
+	if (currentDevice == []) {
 		return []
 	}
-    
-	data.nodes = resp.data.nodes
+    log.debug "$device.name status: $currentDevice"
+    def state = currentDevice.state.status
+	def temperature = currentDevice.state.colourTemperature
+	def brightness =  currentDevice.state.brightness
+    def presence = currentDevice.props.online
+	def hsvHue = currentDevice.state.hue
+	def hsvSat = currentDevice.state.saturation
+	def hsvValue = currentDevice.state.value
+                        
 
-	def state = data.nodes.attributes.state.reportedValue[0] 
-	def temperature = data.nodes.attributes.colourTemperature.reportedValue[0]
-	def brightness =  data.nodes.attributes.brightness.reportedValue[0]
-    def presence = data.nodes.attributes.presence.reportedValue[0]
-	def hsvHue = data.nodes.attributes.hsvHue.reportedValue[0]
-	def hsvSat = data.nodes.attributes.hsvSaturation.reportedValue[0]
-	def hsvValue = data.nodes.attributes.hsvValue.reportedValue[0]
+            //brightness = String.format("%.0f", brightness)
+            //temperature = String.format("%.0f", temperature)
 
-	brightness = String.format("%.0f", brightness)
-    temperature = String.format("%.0f", temperature)
-
-	log.debug "State: $state"
+    log.debug "State: $state"
     log.debug "Temperature: $temperature"
     log.debug "Brightness: $brightness"
     log.debug "Presence: $presence"
     log.debug "HSV (Hue): $hsvHue"
     log.debug "HSV (Sat): $hsvSat"
-    
-	if(presence == "ABSENT") {
-    	// Bulb is not present (i.e. turned off at the switch or removed)
-    	sendEvent(name: 'switch', value: "off")	        
-    } else {    	
-        sendEvent(name: 'switch', value: state.toLowerCase())
-    }
-    
+
+            if(presence == "ABSENT") {
+                // Bulb is not present (i.e. turned off at the switch or removed)
+                sendEvent(name: 'switch', value: "off")	        
+            } else {    	
+                sendEvent(name: 'switch', value: state.toLowerCase())
+            }
+
     sendEvent(name: 'level', value: brightness)
     sendEvent(name: "hue", value: hsvHue)
     sendEvent(name: "saturation", value: hsvSat)
+            
+    return;
 }
 
 def rgbToHSV(r, g, b) {
