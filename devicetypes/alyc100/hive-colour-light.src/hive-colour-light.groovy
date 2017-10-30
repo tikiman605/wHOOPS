@@ -1,5 +1,5 @@
 /**
- *  Hive Active Light Colour Tunable V1.0
+ *  Hive Active Light Colour Tunable
  *
  *  Copyright 2016 Tom Beech / Alex Lee Yuk Cheung
  *
@@ -12,11 +12,11 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- * 30.10.2017 - v1.0 Update Hive Colour Bulb device to support new Hive Beekeeper API
+ * 30.10.2017 - v3.0 Update Hive Colour Bulb device to support new Hive Beekeeper API
  */
 
 metadata {
-    definition (name: "Hive Active Light Colour Tunable V1.0", namespace: "alyc100", author: "Alex Lee Yuk Cheung") {
+    definition (name: "Hive Active Light Colour Tunable", namespace: "alyc100", author: "Alex Lee Yuk Cheung") {
         capability "Polling"
         capability "Switch"
         capability "Switch Level"
