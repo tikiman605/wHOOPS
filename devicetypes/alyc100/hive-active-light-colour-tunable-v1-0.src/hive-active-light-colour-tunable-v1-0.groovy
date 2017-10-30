@@ -67,8 +67,6 @@ def parse(value) {
 
 def setColorTemperature(value) {
 	log.debug "Executing 'setColorTemperature' to ${value}"
-        
-    def genericName = getGenericName(value)
     
     def args = ["colourMode":"WHITE","colourTemperature":value]            
     def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
