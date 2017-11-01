@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  * 30.10.2017 - v3.0 Update Hive Colour Bulb device to support new Hive Beekeeper API
+ * 1.11.2017 - v3.0b Bug fix. Typo for colour change HTTP request.
  */
 
 metadata {
@@ -144,7 +145,7 @@ def setColor(value) {
     log.debug "Sat: ${sat}"
     
     // SEND HTTP COMMAND TO SET COLOUR
-    def args = ["colourMode":"COLOUR","hue":hue, "saturation": sat, "value": value3 ]     
+    def args = ["colourMode":"COLOUR","hue":hue, "saturation": sat ]     
     def resp = parent.apiPOST("/nodes/colourtuneablelight/${device.deviceNetworkId}", args)
     
 	if(resp.status == 404) {
