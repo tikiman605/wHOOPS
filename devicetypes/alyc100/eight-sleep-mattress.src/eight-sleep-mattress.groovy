@@ -13,6 +13,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	VERSION HISTORY
+ *	13.11.2017: 1.1 - Add back up method for determining sleep event if presence values from API become unreliable.
  *	26.01.2017: 1.0 - Remove BETA label.
  *
  *	25.01.2017: 1.0 BETA Release 8c - Stop Infinite Loop / Divide by Errors.
@@ -271,29 +272,22 @@ def poll() {
         sendEvent(name: "desiredHeatLevelReached", value: "false", displayed: false) 
     }
     
-    if (state.lastPresenceStartValue) {
-    	 if ((presenceStart != state.lastPresenceStartValue) && (!state.analyzeSleep)) {
-         	if((contactState == "open") && (!state.analyzeSleep)) {
-            	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
-            	//Set recorded heat level on sleep
-            	state.heatLevelOnSleep = currentHeatLevel
-            	//Start sleep analysis to detect 'in bed' patterns.
-            	startSleepAnalysis()
-            }
-        }
+    //If 8slp flags bed sleep event, start wake up analysis process in 7 minutes time.
+    if (((state.lastPresenceStartValue) && (presenceStart != state.lastPresenceStartValue) && (!state.analyzeSleep) && (contactState == "open") && (!state.analyzeSleep)) || ((heatDelta > 0) && (contactState == "open") && (!state.analyzeSleep)) && ((state.heatLevelHistory[0] > state.heatLevelHistory[1]) && (state.heatLevelHistory[1] > state.heatLevelHistory[2]))) {
+    	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
+        //Set recorded heat level on sleep
+        state.heatLevelOnSleep = currentHeatLevel
+        //Start sleep analysis to detect 'in bed' patterns.
+        startSleepAnalysis()
     }
     
     //If 8slp flags bed left event, start wake up analysis process in 7 minutes time.
-    if (state.lastPresenceEndValue) {
-    	if ((presenceEnd != state.lastPresenceEndValue) && (!state.analyzeWakeUp)) {
-        	if ((contactState == "closed") && (!state.analyzeWakeUp)) {
-            	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
-        		//Set recorded heat level on wake up event.
-        		state.heatLevelOnWakeUp = currentHeatLevel
-                //Start wake up analysis to detect 'out of bed' patterns.
-            	runIn(7*60, startWakeUpAnalysis)
-            }
-        }
+    if (((state.lastPresenceEndValue) && (presenceEnd != state.lastPresenceEndValue) && (!state.analyzeWakeUp) && (contactState == "closed") && (!state.analyzeWakeUp)) || ((state.heatLevelHistory[1] - state.heatLevelHistory[0] >= 5) && (contactState == "closed") && (!state.analyzeWakeUp))) {
+    	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence end event received from 8Slp.")
+        //Set recorded heat level on wake up event.
+        state.heatLevelOnWakeUp = currentHeatLevel
+        //Start wake up analysis to detect 'out of bed' patterns.
+        runIn(7*60, startWakeUpAnalysis)
     }
     
     //Sleep analysis logic. When does device know someone is in bed?
