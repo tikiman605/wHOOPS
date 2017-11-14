@@ -272,7 +272,7 @@ def poll() {
         sendEvent(name: "desiredHeatLevelReached", value: "false", displayed: false) 
     }
     
-    //If 8slp flags bed sleep event, start wake up analysis process in 7 minutes time.
+    //If 8slp flags bed sleep event, start sleep analysis process.
     if (((state.lastPresenceStartValue) && (presenceStart != state.lastPresenceStartValue) && (!state.analyzeSleep) && (contactState == "open") && (!state.analyzeSleep)) || ((heatDelta > 0) && (contactState == "open") && (!state.analyzeSleep)) && ((state.heatLevelHistory[0] > state.heatLevelHistory[1]) && (state.heatLevelHistory[1] > state.heatLevelHistory[2]))) {
     	sendEvent(name: "8slp Event", value: "${app.label}", displayed: true, isStateChange: true, descriptionText: "Presence start event received from 8Slp.") 
         //Set recorded heat level on sleep
